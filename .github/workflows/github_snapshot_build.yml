@@ -43,6 +43,7 @@ jobs:
           - type: macOS
             desktop: dmg
             os: macos-latest
+            # test
           - type: iOS
             iOS: ipa
             os: macos-latest
