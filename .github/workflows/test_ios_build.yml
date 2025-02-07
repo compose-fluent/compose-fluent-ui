@@ -37,7 +37,7 @@ jobs:
           #   os: macos-latest
           - type: iOS
             iOS: ipa
-            os: macos-latest
+            os: macos-15
 
     runs-on: ${{ matrix.os }}
     permissions:
