@@ -17,6 +17,7 @@ on:
       - '**.md'
       - 'LICENSE'
       - '**.gitignore'
+      - '.github/workflows/test_ios_build.yml'
 
   pull_request_review:
     types: |
