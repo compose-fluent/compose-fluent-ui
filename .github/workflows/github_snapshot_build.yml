@@ -10,7 +10,6 @@ name: Gradle Snapshot Build
 on:
   push:
     branches:
-      - dev
       - test_ios_build
 
     paths-ignore:
