@@ -5,23 +5,24 @@
 # This workflow will build a package using Gradle and then publish it to GitHub packages when a release is created
 # For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#Publishing-using-gradle
 
-name: Gradle Snapshot Build
+name: iOS Build
 
 on:
   push:
     branches:
       - test_ios_build
-
+    paths:
+      - '.github/workflows/test_ios_build.yml'
 jobs:
   build:
 
     strategy:
       matrix:
-        type: [PublishLibrary]
+        type: [iOS]
         include:
-          - type: PublishLibrary
-            publish: release
-            os: macos-latest
+          # - type: PublishLibrary
+          #   publish: release
+          #   os: macos-latest
           # - type: Android
           #   android: apk
           #   os: macos-latest
@@ -34,9 +35,9 @@ jobs:
           # - type: macOS
           #   desktop: dmg
           #   os: macos-latest
-          # - type: iOS
-          #   iOS: ipa
-          #   os: macos-latest
+          - type: iOS
+            iOS: ipa
+            os: macos-latest
 
     runs-on: ${{ matrix.os }}
     permissions:
@@ -76,12 +77,7 @@ jobs:
       - name: Build Gallery for iOS
         if: ${{ matrix.iOS }}
         run: |
-          # rm -rf ~/.gradle/caches/
-          # ./gradlew :gallery:kspCommonMainKotlinMetadata
-          # ./gradlew :gallery:linkDebugFrameworkIosFat
-          xcodebuild -scheme iosApp -configuration Debug -sdk iphoneos -archivePath gallery/iosApp/build/Gallery.xcarchive archive -workspace gallery/iosApp/iosApp.xcodeproj/project.xcworkspace CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=""
-          xcodebuild -exportArchive -archivePath gallery/iosApp/build/Gallery.xcarchive -exportPath gallery/iosApp/build/Gallery -allowProvisioningUpdates -exportOptionsPlist gallery/iosApp/iosApp.xcodeproj/ExportOptions.plist
-          # xcodebuild -workspace gallery/iosApp/iosApp.xcodeproj/project.xcworkspace -scheme iosApp -configuration Debug -derivedDataPath gallery/iosApp/build CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          xcodebuild -scheme iosApp -configuration Debug -sdk iphoneos -archivePath gallery/iosApp/build/Gallery.xcarchive archive -workspace gallery/iosApp/iosApp.xcodeproj/project.xcworkspace CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
       - name: Updaload iOS Artifact
         if: ${{ matrix.iOS }}
