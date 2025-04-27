@@ -381,7 +381,8 @@ private fun ColorTextField(
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.width(120.dp).fillMaxWidth()
+            modifier = Modifier.width(120.dp).fillMaxWidth(),
+            maxLines = 1
         )
         Text(label, color = FluentTheme.colors.text.text.secondary)
     }
@@ -442,7 +443,8 @@ fun HexColorTextField(
             }
             isTextFieldInput.value = false
         },
-        modifier = modifier
+        modifier = modifier,
+        maxLines = 1
     )
 }
 
