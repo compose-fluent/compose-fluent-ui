@@ -1,0 +1,300 @@
+package io.github.composefluent.background
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.translate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import io.github.composefluent.FluentTheme
+import io.github.composefluent.LocalContentAlpha
+import io.github.composefluent.LocalContentColor
+import io.github.composefluent.ProvideTextStyle
+import kotlin.jvm.JvmInline
+import kotlin.math.sqrt
+
+/**
+ * Defines constants that specify how far an element's background extends in relation to the element's border.
+ */
+enum class BackgroundSizing {
+    /**
+     * The element's background extends to the inner edge of the border, but does not extend under the border.
+     */
+    InnerBorderEdge,
+
+    /**
+     * The element's background extends under the border to its outer edge, and is visible if the border is transparent.
+     */
+    OuterBorderEdge
+}
+
+@Deprecated(
+    message = "Use backgroundSizing",
+    replaceWith = ReplaceWith(
+        expression = "Layer(modifier=modifier,shape=shape,color=color,contentColor=contentColor,border=border,backgroundSizing=if (outsideBorder) BackgroundSizing.InnerBorderEdge else BackgroundSizing.OuterBorderEdge,elevation=elevation,content=content)",
+        imports = arrayOf("io.github.composefluent.background.BackgroundSizing")
+    )
+)
+@Composable
+fun Layer(
+    modifier: Modifier = Modifier,
+    shape: Shape = FluentTheme.shapes.control,
+    color: Color = FluentTheme.colors.background.layer.default,
+    contentColor: Color = FluentTheme.colors.text.text.primary,
+    border: BorderStroke? = BorderStroke(1.dp, FluentTheme.colors.stroke.card.default),
+    outsideBorder: Boolean,
+    elevation: Dp = 0.dp,
+    content: @Composable () -> Unit
+) {
+    Layer(
+        modifier = modifier,
+        shape = shape,
+        color = color,
+        contentColor = contentColor,
+        border = border,
+        elevation = elevation,
+        backgroundSizing = if (outsideBorder) {
+            BackgroundSizing.InnerBorderEdge
+        } else {
+            BackgroundSizing.OuterBorderEdge
+        },
+        content = content
+    )
+}
+
+/**
+ * A composable that provides a layered background with customizable shape, color, border, and elevation.
+ *
+ * @param modifier The [Modifier] to be applied to the layer.
+ * @param shape The [Shape] of the layer's background. Defaults to [FluentTheme.shapes.control].
+ * @param color The background [Color] of the layer. Defaults to [FluentTheme.colors.background.layer.default].
+ * @param contentColor The preferred [Color] for content inside this layer. Defaults to [FluentTheme.colors.text.text.primary].
+ * @param border The [BorderStroke] to draw around the layer. If null, no border will be drawn. Defaults to a 1.dp border with [FluentTheme.colors.stroke.card.default].
+ * @param backgroundSizing Specifies how the background extends in relation to the border. See [BackgroundSizing] for options. Defaults to [BackgroundSizing.OuterBorderEdge].
+ * @param elevation The elevation of the layer, which affects the shadow. Defaults to 0.dp.
+ * @param content The composable content to be placed inside the layer.
+ */
+@Composable
+fun Layer(
+    modifier: Modifier = Modifier,
+    shape: Shape = FluentTheme.shapes.control,
+    color: Color = FluentTheme.colors.background.layer.default,
+    contentColor: Color = FluentTheme.colors.text.text.primary,
+    border: BorderStroke? = BorderStroke(1.dp, FluentTheme.colors.stroke.card.default),
+    backgroundSizing: BackgroundSizing = BackgroundSizing.OuterBorderEdge,
+    elevation: Dp = 0.dp,
+    content: @Composable () -> Unit
+) {
+    Layer(
+        modifier = modifier,
+        shape = shape,
+        color = color,
+        contentColor = contentColor,
+        border = border,
+        backgroundSizing = backgroundSizing,
+        elevation = elevation,
+        clipContent = false,
+        content = content
+    )
+}
+
+/**
+ * A composable that provides a background layer with customizable shape, color, border, and elevation.
+ *
+ * @param modifier The [Modifier] to be applied to the layer.
+ * @param shape The [Shape] of the layer's background. Defaults to `FluentTheme.shapes.control`.
+ * @param color The background [Color] of the layer. Defaults to `FluentTheme.colors.background.layer.default`.
+ * @param contentColor The default color for the content inside the layer. Defaults to `FluentTheme.colors.text.text.primary`.
+ * @param border An optional [BorderStroke] to be drawn around the layer's background. Defaults to a 1.dp solid border using `FluentTheme.colors.stroke.card.default`.
+ * @param backgroundSizing Determines how the background extends in relation to the border. Defaults to [BackgroundSizing.OuterBorderEdge].
+ * @param clipContent If `true`, the content will be clipped to the layer's shape. Defaults to `false`.
+ * @param elevation The elevation of the layer, used for shadow effects. Defaults to `0.dp`.
+ * @param content The content to be displayed within the layer.
+ */
+@Composable
+fun Layer(
+    modifier: Modifier = Modifier,
+    shape: Shape = FluentTheme.shapes.control,
+    color: Color = FluentTheme.colors.background.layer.default,
+    contentColor: Color = FluentTheme.colors.text.text.primary,
+    border: BorderStroke? = BorderStroke(1.dp, FluentTheme.colors.stroke.card.default),
+    backgroundSizing: BackgroundSizing = BackgroundSizing.OuterBorderEdge,
+    clipContent: Boolean = false,
+    elevation: Dp = 0.dp,
+    content: @Composable () -> Unit
+) {
+    ProvideTextStyle(FluentTheme.typography.body.copy(color = contentColor)) {
+        CompositionLocalProvider(
+            LocalContentColor provides contentColor,
+            LocalContentAlpha provides contentColor.alpha
+        ) {
+            Box(
+                modifier = modifier.layer(
+                    elevation,
+                    shape,
+                    border,
+                    backgroundSizing,
+                    color,
+                    clipContent
+                ),
+                propagateMinConstraints = true
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun Modifier.layer(
+    elevation: Dp,
+    shape: Shape,
+    border: BorderStroke?,
+    backgroundSizing: BackgroundSizing,
+    color: Color,
+    clipContent: Boolean
+) = then(
+    Modifier
+        .elevation(elevation = elevation, shape = shape)
+        .then(
+            if (border != null) {
+                val backgroundShape =
+                    if (backgroundSizing == BackgroundSizing.InnerBorderEdge && shape is CornerBasedShape) {
+                        BackgroundPaddingShape(shape)
+                    } else {
+                        shape
+                    }
+                Modifier.border(border, shape)
+                    .background(color, backgroundShape)
+                    .then(if (clipContent) Modifier.clip(backgroundShape) else Modifier)
+            } else {
+                Modifier.background(color, shape)
+            }
+        )
+        .clip(shape)
+)
+
+/**
+ * keep padding for background
+ */
+@Immutable
+@JvmInline
+internal value class BackgroundPaddingShape(private val borderShape: CornerBasedShape) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        return with(density) {
+            LayerShapeHelper.createInnerOutline(borderShape, size, density, layoutDirection, borderShape.calculateBorderPadding(density))
+        }
+    }
+}
+
+internal object LayerShapeHelper {
+
+    /**
+     * Fork from [CornerBasedShape.createOutline], add padding to corner size and outline rect size.
+     */
+    fun createInnerOutline(
+        outsideShape: CornerBasedShape,
+        size: Size,
+        density: Density,
+        layoutDirection: LayoutDirection,
+        paddingPx: Float,
+    ): Outline {
+        return outsideShape.run {
+            val cornerPaddingPx = if (this is CutCornerShape) {
+                /** padding for cut corner shape */
+                (paddingPx / sqrt(2f)).toInt().toFloat()
+            } else {
+                paddingPx
+            }
+            val innerSize = Size(size.width - 2 * paddingPx, size.height - 2 * paddingPx)
+            /** add padding to corner size */
+            var topStart = (outsideShape.topStart.toPx(size, density) - cornerPaddingPx).coerceAtLeast(0f)
+            var topEnd = (outsideShape.topEnd.toPx(size, density) - cornerPaddingPx).coerceAtLeast(0f)
+            var bottomEnd = (outsideShape.bottomEnd.toPx(size, density) - cornerPaddingPx).coerceAtLeast(0f)
+            var bottomStart = (outsideShape.bottomStart.toPx(size, density) - cornerPaddingPx).coerceAtLeast(0f)
+            val minDimension = innerSize.minDimension
+            if (topStart + bottomStart > minDimension) {
+                val scale = minDimension / (topStart + bottomStart)
+                topStart *= scale
+                bottomStart *= scale
+            }
+            if (topEnd + bottomEnd > minDimension) {
+                val scale = minDimension / (topEnd + bottomEnd)
+                topEnd *= scale
+                bottomEnd *= scale
+            }
+            require(topStart >= 0.0f && topEnd >= 0.0f && bottomEnd >= 0.0f && bottomStart >= 0.0f) {
+                "Corner size in Px can't be negative(topStart = $topStart, topEnd = $topEnd, " +
+                        "bottomEnd = $bottomEnd, bottomStart = $bottomStart)!"
+            }
+            /** add padding to outline rect size */
+            val oldOutline = createOutline(
+                size = innerSize,
+                topStart = topStart,
+                topEnd = topEnd,
+                bottomEnd = bottomEnd,
+                bottomStart = bottomStart,
+                layoutDirection = layoutDirection
+            )
+            /** translate outline to the actual rect bounds */
+            when (oldOutline) {
+                is Outline.Rectangle -> Outline.Rectangle(oldOutline.rect.translate(Offset(paddingPx, paddingPx)))
+                is Outline.Rounded -> Outline.Rounded(oldOutline.roundRect.translate(Offset(paddingPx, paddingPx)))
+                is Outline.Generic -> Outline.Generic(oldOutline.path.apply { translate(Offset(paddingPx, paddingPx)) })
+            }
+        }
+    }
+}
+
+/**
+ * This is a workaround solution to eliminate 1 pixel gap
+ * when density is not integer or `(density % 1) < 0.5`
+ */
+@Stable
+private fun calcPadding(density: Density, borderSize: Dp): Dp {
+    val remainder = density.density % 1f
+
+    return with(density) {
+        when {
+            remainder == 0f -> borderSize
+            else -> (borderSize.toPx() - remainder + 1).toDp()
+        }
+    }
+}
+
+@Stable
+private fun calcCircularPadding(density: Density, borderSize: Dp): Dp {
+    val remainder = density.density % 1f
+
+    return with(density) {
+        if (remainder == 0f) borderSize
+        else (borderSize.toPx() - remainder + 1).toDp()
+    }
+}
+
+internal fun Shape.calculateBorderPadding(density: Density, borderSize: Dp = 1.dp): Float {
+    val circular = this == CircleShape
+    return with(density) {
+        when {
+            circular -> calcCircularPadding(density, borderSize)
+            else -> calcPadding(density, borderSize)
+        }.toPx()
+    }
+}

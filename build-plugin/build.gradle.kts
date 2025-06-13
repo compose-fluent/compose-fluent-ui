@@ -9,7 +9,13 @@ repositories {
 
 dependencies {
     implementation(gradleApi())
+
     implementation(kotlin("gradle-plugin", libs.versions.kotlin.get()))
+    implementation(
+        "com.vanniktech.maven.publish",
+        "com.vanniktech.maven.publish.gradle.plugin",
+        libs.versions.mavenPublish.get()
+    )
 }
 
 kotlin {
@@ -23,8 +29,8 @@ kotlin {
 gradlePlugin {
     plugins {
         create("BuildPlugin") {
-            id = "com.konyaco.fluent.plugin.build"
-            implementationClass = "com.konyaco.fluent.plugin.build.BuildPlugin"
+            id = "io.github.composefluent.plugin.build"
+            implementationClass = "io.github.composefluent.plugin.build.BuildPlugin"
         }
     }
 }

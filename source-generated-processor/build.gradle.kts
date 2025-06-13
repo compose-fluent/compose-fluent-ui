@@ -1,4 +1,4 @@
-import com.konyaco.fluent.plugin.build.BuildConfig
+import io.github.composefluent.plugin.build.BuildConfig
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -8,6 +8,7 @@ group = BuildConfig.group
 version = BuildConfig.libraryVersion
 
 kotlin {
+    jvmToolchain(BuildConfig.Jvm.jvmToolchainVersion)
     jvm()
     sourceSets {
         val jvmMain by getting {

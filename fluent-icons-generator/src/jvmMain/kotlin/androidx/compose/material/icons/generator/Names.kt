@@ -23,7 +23,7 @@ import com.squareup.kotlinpoet.MemberName
  * Package names used for icon generation.
  */
 enum class PackageNames(val packageName: String) {
-    FluentIconsPackage("com.konyaco.fluent.icons"),
+    FluentIconsPackage("io.github.composefluent.icons"),
     GraphicsPackage("androidx.compose.ui.graphics"),
     VectorPackage(GraphicsPackage.packageName + ".vector")
 }
