@@ -26,8 +26,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.relocation.BringIntoViewResponder
-import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,7 +40,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.Snapshot
@@ -60,11 +57,17 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.node.DelegatingNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.requireLayoutCoordinates
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.relocation.BringIntoViewModifierNode
+import androidx.compose.ui.relocation.bringIntoView
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
@@ -129,7 +132,14 @@ fun TabRow(
 
             val selectedItem = remember {
                 derivedStateOf {
-                    state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == selectedKey() }
+                    val currentKey = selectedKey()
+                    state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == currentKey }
+                }
+            }
+            val selectedItemScrollOffset = remember(selectedItem, state) {
+                derivedStateOf {
+                    val selectedItem = selectedItem.value ?: return@derivedStateOf 0
+                    selectedItem.offset + state.firstVisibleItemScrollOffset - state.firstVisibleItemScrollOffset
                 }
             }
             Box(modifier = Modifier
@@ -140,7 +150,8 @@ fun TabRow(
                     borderColor = borderColor,
                     containerWidth = { containerWidth.value },
                     rowRect = { rowRect.value },
-                    selectedItem = { selectedItem.value }
+                    selectedItem = { selectedItem.value },
+                    selectedItemScrollOffset = { selectedItemScrollOffset.value }
                 )
             )
             Box(modifier = Modifier.widthIn(padding)) {
@@ -277,7 +288,6 @@ fun TabItem(
     val direction = LocalLayoutDirection.current
     val color = colors.schemeFor(targetInteractionSource.collectVisualState(false))
     val density = LocalDensity.current
-    val selectedValue = rememberUpdatedState(selected)
     val bottomRadius = FluentTheme.cornerRadius.control
     val topRadius = FluentTheme.cornerRadius.overlay
     Box(
@@ -299,11 +309,10 @@ fun TabItem(
                     Modifier
                 }
             )
-            .bringIntoViewResponder(
-                remember(density, selectedValue, bottomRadius) {
-                    TabItemBringIntoViewResponder(density, bottomRadius) { selectedValue.value }
-                }
-            )
+            .then(TabItemBringIntoViewModifierNodeElement(
+                density = density,
+                bottomRadius = bottomRadius
+            ))
             .clickable(
                 indication = null,
                 interactionSource = targetInteractionSource
@@ -798,6 +807,7 @@ private fun Modifier.drawTabRowBorder(
     containerWidth: () -> Int,
     rowRect: () -> Rect,
     selectedItem: () -> LazyListItemInfo?,
+    selectedItemScrollOffset: () -> Int,
 ) = drawWithCache {
     val path = Path()
     val strokeSizePx = StrokeSize.toPx()
@@ -809,7 +819,7 @@ private fun Modifier.drawTabRowBorder(
             val itemPadding = bottomRadius.toPx()
             if (currentItem != null) {
                 val rowRectValue = rowRect()
-                val currentItemOffset = (rowRectValue.left + currentItem.offset)
+                val currentItemOffset = (rowRectValue.left + selectedItemScrollOffset())
                 lineTo(
                     (currentItemOffset).coerceIn(
                         rowRectValue.left,
@@ -885,27 +895,40 @@ private fun Modifier.drawTabViewItemBorder(
     }
 }
 
+private data class TabItemBringIntoViewModifierNodeElement(
+    val density: Density,
+    val bottomRadius: Dp,
+): ModifierNodeElement<TabItemBringIntoViewModifierNode>() {
+    override fun create(): TabItemBringIntoViewModifierNode {
+        return TabItemBringIntoViewModifierNode(density, bottomRadius)
+    }
+
+    override fun update(node: TabItemBringIntoViewModifierNode) {
+        node.density = density
+        node.bottomRadius = bottomRadius
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Stable
-private class TabItemBringIntoViewResponder(
-    density: Density,
-    bottomRadius: Dp,
-    val selected: () -> Boolean,
-) : BringIntoViewResponder {
-    val paddingSize = with(density) { bottomRadius.toPx() }
+private class TabItemBringIntoViewModifierNode(
+    var density: Density,
+    var bottomRadius: Dp,
+) : BringIntoViewModifierNode, DelegatingNode() {
 
-    override suspend fun bringChildIntoView(localRect: () -> Rect?) {}
-
-    override fun calculateRectForParent(localRect: Rect): Rect {
-        return Snapshot.withoutReadObservation {
-            if (selected()) {
-                localRect.copy(
+    override suspend fun bringIntoView(
+        childCoordinates: LayoutCoordinates,
+        boundsProvider: () -> Rect?
+    ) {
+        Snapshot.withoutReadObservation {
+            if (!childCoordinates.isAttached || !isAttached) return@withoutReadObservation
+            val localRect = requireLayoutCoordinates().localBoundingBoxOf(childCoordinates)
+            val paddingSize = with(density) { bottomRadius.toPx() }
+            val targetRect = localRect.copy(
                     left = localRect.left - paddingSize,
                     right = localRect.right + paddingSize
                 )
-            } else {
-                localRect
-            }
+            bringIntoView { targetRect }
         }
     }
 }

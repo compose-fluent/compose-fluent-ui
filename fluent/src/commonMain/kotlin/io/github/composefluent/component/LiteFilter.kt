@@ -14,12 +14,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.relocation.BringIntoViewResponder
-import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
@@ -29,7 +26,12 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.requireLayoutCoordinates
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.relocation.BringIntoViewModifierNode
+import androidx.compose.ui.relocation.bringIntoView
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -65,7 +67,7 @@ fun LiteFilter(
                 )
             )
                 .horizontalScroll(state)
-                .bringIntoViewResponder(remember(state, density) { LiteFilterBringIntoViewResponder(state, density) })
+                .then(LiteFilterModifierNodeElement(state, density))
                 .align(Alignment.CenterStart)
         ) {
             content()
@@ -80,7 +82,12 @@ fun LiteFilter(
         ) {
             SubtleButton(
                 onClick = { scope.launch { state.animateScrollBy(-state.viewportSize / 3f) } },
-                content = { FontIconSolid8(type = FontIconPrimitive.CaretLeft, contentDescription = null) },
+                content = {
+                    FontIconSolid8(
+                        type = FontIconPrimitive.CaretLeft,
+                        contentDescription = null
+                    )
+                },
                 iconOnly = true
             )
         }
@@ -93,40 +100,65 @@ fun LiteFilter(
         ) {
             SubtleButton(
                 onClick = { scope.launch { state.animateScrollBy(state.viewportSize / 3f) } },
-                content = { FontIconSolid8(type = FontIconPrimitive.CaretRight, contentDescription = null) },
+                content = {
+                    FontIconSolid8(
+                        type = FontIconPrimitive.CaretRight,
+                        contentDescription = null
+                    )
+                },
                 iconOnly = true
             )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-private class LiteFilterBringIntoViewResponder(
+private data class LiteFilterModifierNodeElement(
     private val state: ScrollState,
-    density: Density,
-): BringIntoViewResponder {
-    val startSize = with(density) { 44.dp.toPx() }
-    val endSize = startSize
+    private val density: Density,
+) : ModifierNodeElement<LiteFilterBringIntoViewModifierNode>() {
+    override fun create(): LiteFilterBringIntoViewModifierNode {
+        return LiteFilterBringIntoViewModifierNode(
+            state = state,
+            density = density
+        )
+    }
 
-    override suspend fun bringChildIntoView(localRect: () -> Rect?) {}
+    override fun update(node: LiteFilterBringIntoViewModifierNode) {
+        node.state = state
+        node.density = density
+    }
+}
 
-    override fun calculateRectForParent(localRect: Rect): Rect {
-        return Snapshot.withoutReadObservation {
-            when {
+@OptIn(ExperimentalFoundationApi::class)
+private class LiteFilterBringIntoViewModifierNode(
+    var state: ScrollState,
+    var density: Density,
+) : Modifier.Node(), BringIntoViewModifierNode {
+
+    override suspend fun bringIntoView(
+        childCoordinates: LayoutCoordinates,
+        boundsProvider: () -> Rect?
+    ) {
+        Snapshot.withoutReadObservation {
+            if (!childCoordinates.isAttached || !isAttached) return@withoutReadObservation
+            val localRect = requireLayoutCoordinates().localBoundingBoxOf(childCoordinates)
+            val startSize = with(density) { 44.dp.toPx() }
+            val endSize = startSize
+            val targetRect = when {
                 state.canScrollForward && state.viewportSize - localRect.right - state.value < endSize -> {
-                    return localRect.copy(
+                    localRect.copy(
                         right = localRect.right + endSize
                     )
                 }
 
                 state.canScrollBackward && localRect.left < state.value + startSize -> {
-                    return localRect.copy(
+                    localRect.copy(
                         left = localRect.left - startSize
                     )
                 }
-
                 else -> localRect
             }
+            bringIntoView { targetRect }
         }
     }
 }
