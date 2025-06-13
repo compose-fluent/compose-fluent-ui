@@ -33,6 +33,8 @@ class Store(
 ) {
     var darkMode by mutableStateOf(systemDarkMode)
 
+    var accentColor by mutableStateOf(Color.Unspecified)
+
     var enabledAcrylicPopup by mutableStateOf(enabledAcrylicPopup)
 
     var compactMode by mutableStateOf(compactMode)
@@ -63,7 +65,7 @@ fun GalleryTheme(
         LocalStore provides store
     ) {
         FluentTheme(
-            colors = if (store.darkMode) darkColors() else lightColors(),
+            colors = if (store.darkMode) darkColors(store.accentColor) else lightColors(store.accentColor),
             useAcrylicPopup = store.enabledAcrylicPopup,
             compactMode = store.compactMode
         ) {

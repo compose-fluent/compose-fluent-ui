@@ -219,8 +219,8 @@ internal val LocalAcrylicPopupEnabled = staticCompositionLocalOf { true }
  * @param accent The accent color to be used for generating the color scheme. Defaults to a specific blue color (0xFF0078D4).
  * @return A [Colors] object representing the light theme color scheme.
  */
-fun lightColors(accent: Color = Color(0xFF0078D4)): Colors = Colors(generateShades(accent), false)
-
+@OptIn(ExperimentalFluentApi::class)
+fun lightColors(accent: Color = Color.Unspecified): Colors = Colors(Shades.generate(accentColor = accent, darkMode = false), false)
 
 /**
  * Creates a Fluent dark theme color scheme.
@@ -228,4 +228,5 @@ fun lightColors(accent: Color = Color(0xFF0078D4)): Colors = Colors(generateShad
  * @param accent The accent color to be used for generating the color scheme. Defaults to a specific blue color (0xFF0078D4).
  * @return A [Colors] object representing the dark theme color scheme.
  */
-fun darkColors(accent: Color = Color(0xFF0078D4)): Colors = Colors(generateShades(accent), true)
+@OptIn(ExperimentalFluentApi::class)
+fun darkColors(accent: Color = Color.Unspecified): Colors = Colors(Shades.generate(accentColor = accent, darkMode = true), true)

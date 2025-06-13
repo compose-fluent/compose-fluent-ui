@@ -1,9 +1,4 @@
-package com.konyaco.fluent.util
-
-import com.konyaco.fluent.util.ColorUtils.LABToRGB
-import com.konyaco.fluent.util.ColorUtils.RGBToLAB
-import com.konyaco.fluent.util.ColorUtils.RGBToXYZ
-import com.konyaco.fluent.util.ColorUtils.XYZToRGB
+package io.github.composefluent.util
 
 internal enum class ColorScaleInterpolationMode {
     RGB, LAB, XYZ
@@ -57,17 +52,17 @@ internal class ColorScale {
 
         when (mode) {
             ColorScaleInterpolationMode.LAB -> {
-                val leftLAB = RGBToLAB(_stops[lowerIndex].color, false)
-                val rightLAB = RGBToLAB(_stops[upperIndex].color, false)
+                val leftLAB = ColorUtils.RGBToLAB(_stops[lowerIndex].color, false)
+                val rightLAB = ColorUtils.RGBToLAB(_stops[upperIndex].color, false)
                 val targetLAB: LAB = ColorUtils.interpolateLAB(leftLAB, rightLAB, scalePosition)
-                return LABToRGB(targetLAB, false).denormalized()
+                return ColorUtils.LABToRGB(targetLAB, false).denormalized()
             }
 
             ColorScaleInterpolationMode.XYZ -> {
-                val leftXYZ = RGBToXYZ(_stops[lowerIndex].color, false)
-                val rightXYZ = RGBToXYZ(_stops[upperIndex].color, false)
+                val leftXYZ = ColorUtils.RGBToXYZ(_stops[lowerIndex].color, false)
+                val rightXYZ = ColorUtils.RGBToXYZ(_stops[upperIndex].color, false)
                 val targetXYZ: XYZ = ColorUtils.interpolateXYZ(leftXYZ, rightXYZ, scalePosition)
-                return XYZToRGB(targetXYZ, false).denormalized()
+                return ColorUtils.XYZToRGB(targetXYZ, false).denormalized()
             }
 
             else -> return ColorUtils.interpolateRGB(

@@ -1,4 +1,4 @@
-package com.konyaco.fluent.util
+package io.github.composefluent.util
 
 
 internal enum class ColorBlendMode {

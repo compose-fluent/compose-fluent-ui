@@ -1,4 +1,4 @@
-package com.konyaco.fluent.util
+package io.github.composefluent.util
 
 import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
@@ -7,6 +7,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.round
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -482,5 +483,5 @@ internal data class XYZ(
 
 internal fun round(number: Double, precision: Int): Double {
     val digits = 10.0.pow(precision)
-    return kotlin.math.round(number * digits) / digits
+    return round(number * digits) / digits
 }

@@ -9,8 +9,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
-import com.konyaco.fluent.util.ARGB
-import com.konyaco.fluent.util.ColorScale
+import io.github.composefluent.util.ARGB
+import io.github.composefluent.util.ColorScale
 
 /**
  * Represents the color palette for the Fluent UI design system.
@@ -116,11 +116,56 @@ data class Shades(
     val dark3: Color,
 ) {
     companion object {
+
         /**
-         * Generates shades from `accentColor`
+         * Returns the default set of shades.
+         *
+         * This function provides a predefined [Shades] object that represents the
+         * standard Fluent UI color palette. It includes the base accent color
+         * and its corresponding light and dark variations.
+         *
+         * @return The default [Shades] object.
          */
         @Stable
+        fun default() = Shades(
+            base = Color(0xFF0078D4),
+            light1 = Color(0xFF0093F9),
+            light2 = Color(0xFF60CCFE),
+            light3 = Color(0xFF98ECFE),
+            dark1 = Color(0xFF005EB7),
+            dark2 = Color(0xFF003D92),
+            dark3 = Color(0xFF001968)
+        )
+
+        /**
+         * Generates a set of color shades based on a primary accent color.
+         *
+         * This function takes a base `accentColor` and a `darkMode` boolean to produce a [Shades]
+         * object. The [Shades] object contains the original `accentColor` as the base, along with
+         * three lighter and three darker variations. These variations are calculated using a color
+         * scale algorithm to ensure harmonious and visually appealing shades suitable for UI design.
+         *
+         * The generation process involves:
+         * 1. Creating a color scale from the `accentColor`.
+         * 2. Generating 11 steps along this scale.
+         * 3. Selecting specific steps from this scale to represent the light and dark shades.
+         *    The selection of these steps differs slightly depending on whether `darkMode` is true or false
+         *    to optimize the shades for the respective theme.
+         *
+         * @param accentColor The base [Color] from which to generate the shades. This will be the `base`
+         *                  color in the returned [Shades] object.
+         * @param darkMode A boolean indicating whether the shades should be optimized for a dark theme (true)
+         *                 or a light theme (false). This affects which generated color steps are chosen
+         *                 for the light and dark variations.
+         * @return A [Shades] object containing the `base` accent color and its corresponding light and
+         *         dark shades (light1, light2, light3, dark1, dark2, dark3).
+         */
+        @ExperimentalFluentApi
+        @Stable
         fun generate(accentColor: Color, darkMode: Boolean): Shades {
+
+            if (accentColor == Color.Unspecified) return default()
+
             val scale = ColorScale.getPaletteScale(ARGB.fromColor(accentColor))
             val steps = 11
             val entries = mutableListOf<Color>()
@@ -705,24 +750,11 @@ data class SystemColors(
  * @param accent The base accent color to generate shades from.
  * @return A [Shades] object containing the base color and its light and dark variations.
  */
+@Deprecated("Use Shades.generate instead", ReplaceWith("Shades.generate(accentColor = accent, darkMode = false)", imports = arrayOf("io.github.composefluent.Shades")))
+@OptIn(ExperimentalFluentApi::class)
 fun generateShades(accent: Color): Shades {
-    return getAccentShades()[accent] ?: getDefaultShades()
+    return Shades.generate(accentColor = accent, darkMode = false)
 }
-
-internal fun getDefaultShades(): Shades = getAccentShades().entries.first().value
-
-internal fun getAccentShades() = mapOf<Color, Shades>(
-    Color(0xFF0078D4) to Shades(
-        base = Color(0xFF0078D4),
-        light1 = Color(0xFF0093F9),
-        light2 = Color(0xFF60CCFE),
-        light3 = Color(0xFF98ECFE),
-        dark1 = Color(0xFF005EB7),
-        dark2 = Color(0xFF003D92),
-        dark3 = Color(0xFF001968)
-    ),
-)
-
 
 /**
  * Returns the content color for a given background color.

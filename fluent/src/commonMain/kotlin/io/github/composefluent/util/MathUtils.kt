@@ -1,11 +1,12 @@
-package com.konyaco.fluent.util
+package io.github.composefluent.util
 
+import kotlin.math.PI
 import kotlin.math.round
 
 
 internal object MathUtils {
     fun degreesToRadians(degrees: Double): Double {
-        return degrees * (Math.PI / 180.0)
+        return degrees * (PI / 180.0)
     }
 
     fun clampToUnit(c: Double): Double {
@@ -26,7 +27,7 @@ internal object MathUtils {
     }
 
     fun radiansToDegrees(radians: Double): Double {
-        return radians * (180.0 / Math.PI)
+        return radians * (180.0 / PI)
     }
 
     fun lerp(left: Double, right: Double, scale: Double): Double {
@@ -57,13 +58,13 @@ internal object MathUtils {
         } else if (c == Double.NEGATIVE_INFINITY) {
             return 0;
         }
-        val c = kotlin.math.round(c)
-        if (c <= 0) {
-            return 0;
+        val c = round(c)
+        return if (c <= 0) {
+            0;
         } else if (c >= 255) {
-            return 255;
+            255;
         } else {
-            return c.toInt()
+            c.toInt()
         }
     }
 }

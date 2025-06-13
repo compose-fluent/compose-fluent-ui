@@ -25,11 +25,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -84,6 +86,7 @@ import com.mayakapps.compose.windowstyler.WindowStyle
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef.HWND
 import com.sun.jna.platform.win32.WinUser
+import io.github.composefluent.gallery.LocalStore
 import java.awt.Window
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -132,6 +135,13 @@ fun FrameWindowScope.WindowsWindowFrame(
             },
             onWindowInsetUpdate = { paddingInset.insets = it }
         )
+    }
+    val store = LocalStore.current
+    LaunchedEffect(store, procedure) {
+        snapshotFlow { procedure.windowFrameColor }
+            .collect {
+                store.accentColor = it
+            }
     }
     Box(
         modifier = Modifier.windowInsetsPadding(paddingInset)
