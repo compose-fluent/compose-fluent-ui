@@ -195,7 +195,7 @@ jobs:
         # Use PowerShell for cross-platform compatibility (available on all runners)
         shell: pwsh
         run: |
-          $searchPath = "${{ github.workspace }}/gallery/build/compose/binraries/"
+          $searchPath = "${{ github.workspace }}/gallery/build/compose/binaries/"
           $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.desktop }}" -Recurse | Where-Object { !$_.PSIsContainer }
           if ($artifact.Count -ne 1) {
             Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
