@@ -8,6 +8,9 @@
 name: Upload Relase Build
 
 on:
+  push:
+    branches:
+      - release_build_auto_upload
   release:
     types: [created]
     
