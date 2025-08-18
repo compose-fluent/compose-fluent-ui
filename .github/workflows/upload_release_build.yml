@@ -5,7 +5,7 @@
 # This workflow will build a package using Gradle and then publish it to GitHub packages when a release is created
 # For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#Publishing-using-gradle
 
-name: Upload Relase Build
+name: Upload Release Build
 
 on:
   push:
@@ -165,8 +165,8 @@ jobs:
         # Use PowerShell for cross-platform compatibility (available on all runners)
         shell: pwsh
         run: |
-          $searchPath = "${{ github.workspace }}/gallery/build/outputs/apk/"
-          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.android }}" | Where-Object { !$_.PSIsContainer }
+          $searchPath = "${{ github.workspace }}/gallery/build/outputs/apk/release/"
+          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.android }}" -Recurse | Where-Object { !$_.PSIsContainer }
           if ($artifact.Count -ne 1) {
             Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
             exit 1
@@ -196,7 +196,7 @@ jobs:
         shell: pwsh
         run: |
           $searchPath = "${{ github.workspace }}/gallery/build/compose/binraries/"
-          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.desktop }}" | Where-Object { !$_.PSIsContainer }
+          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.desktop }}" -Recurse | Where-Object { !$_.PSIsContainer }
           if ($artifact.Count -ne 1) {
             Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
             exit 1
