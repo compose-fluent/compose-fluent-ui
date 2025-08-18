@@ -1,0 +1,218 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+# This workflow will build a package using Gradle and then publish it to GitHub packages when a release is created
+# For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#Publishing-using-gradle
+
+name: Upload Relase Build
+
+on:
+  release:
+    types: [created]
+    
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional: The git tag of the release to upload assets to (e.g., v1.2.0). If empty, will use the latest release.'
+        required: false
+        default: ''
+permissions:
+  contents: write
+jobs:
+  # Job 1: Prepare Release Information
+  # This job's sole purpose is to determine which release to upload assets to and get its upload URL.
+  prepare-release:
+    name: Prepare Release Info
+    runs-on: ubuntu-latest
+    # Define outputs to be used by subsequent jobs
+    outputs:
+      upload_url: ${{ steps.get_release.outputs.upload_url }}
+      release_tag: ${{ steps.get_release.outputs.tag_name }}
+    
+    steps:
+      - name: Get Release Info
+        id: get_release
+        # Use the GitHub CLI (gh) to get release information
+        run: |
+          # Check which event triggered the workflow
+          if [ "${{ github.event_name }}" == "release" ]; then
+            # Automatic trigger: Get info directly from the event context
+            echo "Triggered by 'release' event. Using release from event payload."
+            UPLOAD_URL="${{ github.event.release.upload_url }}"
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          else
+            # Manual trigger: Find the release using the GitHub CLI
+            echo "Triggered by 'workflow_dispatch' event. Finding release..."
+            # Check if the user provided a tag
+            if [ -n "${{ github.event.inputs.tag }}" ]; then
+              # User specified a tag
+              echo "User specified tag: ${{ github.event.inputs.tag }}"
+              RELEASE_INFO=$(gh release view "${{ github.event.inputs.tag }}" --json tagName,uploadUrl)
+            else
+              # User did not specify a tag, find the latest release
+              echo "No tag specified, finding the latest release."
+              RELEASE_INFO=$(gh release view --json tagName,uploadUrl)
+            fi
+            
+            # Extract information from the JSON returned by the gh command
+            UPLOAD_URL=$(echo "$RELEASE_INFO" | jq -r .uploadUrl)
+            TAG_NAME=$(echo "$RELEASE_INFO" | jq -r .tagName)
+
+            if [ "$UPLOAD_URL" == "null" ] || [ "$TAG_NAME" == "null" ]; then
+              echo "Error: Could not find a valid release."
+              exit 1
+            fi
+          fi
+          
+          echo "Release Tag: $TAG_NAME"
+          echo "Upload URL: $UPLOAD_URL"
+
+          # Set the results as step outputs
+          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        env:
+          # The gh command needs GITHUB_TOKEN for API calls
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  build:
+    needs: prepare-release
+    strategy:
+      matrix:
+        type: [PublishLibrary, Android, Windows, Linux, macOS]
+        include:
+          - type: PublishLibrary
+            publish: release
+            os: macos-latest
+          - type: Android
+            android: apk
+            os: ubuntu-latest
+          - type: Windows
+            desktop: msi
+            os: windows-latest
+          - type: Linux
+            desktop: deb
+            os: ubuntu-latest
+          - type: macOS
+            desktop: dmg
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+    env:
+      PROJECT_BUILD_TYPE: 'release'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      # Publish Release Library
+      - name: Publish Library
+        if: ${{ github.ref == 'refs/heads/dev' && github.event_name == 'push' && matrix.type == 'PublishLibrary' }}
+        run: |
+          ./gradlew publishToMavenLocal
+          ./gradlew publishToMavenCentral --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.MAVEN_SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+
+      - name: Upload Library Artifact
+        if: ${{ github.event_name == 'push' && matrix.type == 'PublishLibrary' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Repository-${{ github.run_id }}
+          path: ~/.m2/repository
+
+      # Android Build Action
+      - name: Build Gallery for ${{ matrix.type }}
+        if: ${{ matrix.android }}
+        run: |
+          echo "$ANDROID_KEYSTORE" | base64 --decode > ${{ github.workspace }}/android_sign_key.jks
+          ./gradlew :gallery:assembleRelease
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_SIGNING_FILE: ${{ github.workspace }}/android_sign_key.jks
+          ANDROID_SIGNING_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      # Step 4: Find the build artifact
+      # This new step searches the build directory for a file with the specified suffix.
+      - name: Find Android Build Artifact
+        id: find_android_artifact
+        if: ${{ matrix.android }}
+        # Use PowerShell for cross-platform compatibility (available on all runners)
+        shell: pwsh
+        run: |
+          $searchPath = "${{ github.workspace }}/gallery/build/outputs/apk/"
+          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.android }}" | Where-Object { !$_.PSIsContainer }
+          if ($artifact.Count -ne 1) {
+            Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
+            exit 1
+          }
+          
+          $asset_path = $artifact.FullName
+          $asset_name = $artifact.Name
+          
+          Write-Host "Found artifact path: $asset_path"
+          Write-Host "Final asset name: $asset_name"
+          
+          echo "asset_path=$asset_path" | Add-Content -Path $env:GITHUB_OUTPUT
+          echo "asset_name=$asset_name" | Add-Content -Path $env:GITHUB_OUTPUT
+
+      # Desktop Build Action
+      - name: Build Gallery for ${{ matrix.type }}
+        if: ${{ matrix.desktop }}
+        run: |
+          ./gradlew :gallery:packageReleaseDistributionForCurrentOS
+
+      # Step 4: Find the build artifact
+      # This new step searches the build directory for a file with the specified suffix.
+      - name: Find Desktop Build Artifact
+        id: find_artifact
+        if: ${{ matrix.desktop }}
+        # Use PowerShell for cross-platform compatibility (available on all runners)
+        shell: pwsh
+        run: |
+          $searchPath = "${{ github.workspace }}/gallery/build/compose/binraries/"
+          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.desktop }}" | Where-Object { !$_.PSIsContainer }
+          if ($artifact.Count -ne 1) {
+            Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
+            exit 1
+          }
+          
+          $asset_path = $artifact.FullName
+          $asset_name = $artifact.Name
+          
+          Write-Host "Found artifact path: $asset_path"
+          Write-Host "Final asset name: $asset_name"
+          
+          echo "asset_path=$asset_path" | Add-Content -Path $env:GITHUB_OUTPUT
+          echo "asset_name=$asset_name" | Add-Content -Path $env:GITHUB_OUTPUT
+          
+      # Step 5: Upload the build artifact to the Release      
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Use the upload_url from the prepare-release job
+          upload_url: ${{ needs.prepare-release.outputs.upload_url }}
+          # Use the asset path and name found in the previous step
+          asset_path: ${{ steps.find_artifact.outputs.asset_path }}
+          asset_name: ${{ steps.find_artifact.outputs.asset_name }}
+          asset_content_type: application/octet-stream
