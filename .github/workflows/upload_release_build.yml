@@ -213,6 +213,7 @@ jobs:
           
       # Step 5: Upload the build artifact to the Release      
       - name: Upload Release Asset
+        if: ${{ steps.find_artifact.outputs.asset_name }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
