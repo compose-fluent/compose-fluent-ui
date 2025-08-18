@@ -34,6 +34,10 @@ jobs:
       release_tag: ${{ steps.get_release.outputs.tag_name }}
     
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
       - name: Get Release Info
         id: get_release
         # Use the GitHub CLI (gh) to get release information
