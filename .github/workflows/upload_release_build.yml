@@ -93,15 +93,19 @@ jobs:
             os: macos-latest
           - type: Android
             android: apk
+            binaryPath: gallery/build/outputs/apk/release/
             os: ubuntu-latest
           - type: Windows
             desktop: msi
+            binaryPath: gallery/build/compose/binaries/
             os: windows-latest
           - type: Linux
             desktop: deb
+            binaryPath: gallery/build/compose/binaries/
             os: ubuntu-latest
           - type: macOS
             desktop: dmg
+            binaryPath: gallery/build/compose/binaries/
             os: macos-latest
 
     runs-on: ${{ matrix.os }}
@@ -112,7 +116,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.ref }}
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -157,30 +161,6 @@ jobs:
           ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      # Step 4: Find the build artifact
-      # This new step searches the build directory for a file with the specified suffix.
-      - name: Find Android Build Artifact
-        id: find_android_artifact
-        if: ${{ matrix.android }}
-        # Use PowerShell for cross-platform compatibility (available on all runners)
-        shell: pwsh
-        run: |
-          $searchPath = "${{ github.workspace }}/gallery/build/outputs/apk/release/"
-          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.android }}" -Recurse | Where-Object { !$_.PSIsContainer }
-          if ($artifact.Count -ne 1) {
-            Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
-            exit 1
-          }
-          
-          $asset_path = $artifact.FullName
-          $asset_name = $artifact.Name
-          
-          Write-Host "Found artifact path: $asset_path"
-          Write-Host "Final asset name: $asset_name"
-          
-          echo "asset_path=$asset_path" | Add-Content -Path $env:GITHUB_OUTPUT
-          echo "asset_name=$asset_name" | Add-Content -Path $env:GITHUB_OUTPUT
-
       # Desktop Build Action
       - name: Build Gallery for ${{ matrix.type }}
         if: ${{ matrix.desktop }}
@@ -189,14 +169,14 @@ jobs:
 
       # Step 4: Find the build artifact
       # This new step searches the build directory for a file with the specified suffix.
-      - name: Find Desktop Build Artifact
+      - name: Find Build Artifact
         id: find_artifact
-        if: ${{ matrix.desktop }}
+        if: ${{ matrix.binaryPath }}
         # Use PowerShell for cross-platform compatibility (available on all runners)
         shell: pwsh
         run: |
-          $searchPath = "${{ github.workspace }}/gallery/build/compose/binaries/"
-          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.desktop }}" -Recurse | Where-Object { !$_.PSIsContainer }
+          $searchPath = "${{ github.workspace }}/${{ matrix.binaryPath }}"
+          $artifact = Get-ChildItem -Path $searchPath -Filter "*${{ matrix.desktop != '' && matrix.desktop || matrix.android }}" -Recurse | Where-Object { !$_.PSIsContainer }
           if ($artifact.Count -ne 1) {
             Write-Error "Error: Expected 1 artifact, but found $($artifact.Count)."
             exit 1
