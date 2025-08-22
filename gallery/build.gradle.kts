@@ -40,6 +40,7 @@ kotlin {
                 implementation(project(":fluent-icons-extended"))
                 implementation(compose.uiUtil)
                 implementation(libs.highlights)
+                implementation(libs.kotlinx.datetime)
                 implementation(project(":source-generated"))
             }
             kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
