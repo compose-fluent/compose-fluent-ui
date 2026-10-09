@@ -16,6 +16,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
@@ -31,7 +33,8 @@ import kotlinx.coroutines.launch
  * @param modifier The modifier to be applied to the button.
  * @param enabled Controls the enabled state of the button. When `false`, this button will not be clickable.
  * @param onClick The callback to be invoked when this button is clicked. If `null`, the button will not be clickable.
- * @param colors The colors to use for the button in different visual states. Defaults to [ButtonDefaults.subtleButtonColors].
+ * @param colors The colors to use for the button in different visual states. Defaults to
+ * [TextBoxButtonDefaults.buttonColors].
  * @param outsideBorder Determines whether to display the border outside the button. Defaults to `false`.
  * @param interactionSource The [MutableInteractionSource] representing the stream of Interactions for this button.
  * @param focusable Whether the button should be focusable.
@@ -42,7 +45,7 @@ fun TextBoxButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
-    colors: VisualStateScheme<ButtonColor> = ButtonDefaults.subtleButtonColors(),
+    colors: VisualStateScheme<ButtonColor> = TextBoxButtonDefaults.buttonColors(),
     outsideBorder: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
     focusable: Boolean = false,
@@ -103,7 +106,7 @@ fun ToggleTextButton(
     colors: VisualStateScheme<ButtonColor> = if (checked) {
         ButtonDefaults.accentButtonColors()
     } else {
-        ButtonDefaults.subtleButtonColors()
+        TextBoxButtonDefaults.buttonColors()
     },
     outsideBorder: Boolean = checked,
     interactionSource: MutableInteractionSource? = null,
@@ -159,7 +162,7 @@ fun RepeatTextBoxButton(
     enabled: Boolean = true,
     delay: Long = 200,
     interval: Long = 50,
-    colors: VisualStateScheme<ButtonColor> = ButtonDefaults.subtleButtonColors(),
+    colors: VisualStateScheme<ButtonColor> = TextBoxButtonDefaults.buttonColors(),
     outsideBorder: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
     focusable: Boolean = false,
@@ -206,6 +209,21 @@ fun RepeatTextBoxButton(
  * Contains the default values used for [TextBoxButton], [ToggleTextButton] and [RepeatTextBoxButton].
  */
 object TextBoxButtonDefaults {
+
+    /**
+     * Creates the default colors for a text box button.
+     *
+     * Text box actions use the secondary text color while retaining the subtle button fills for
+     * pointer interaction states.
+     */
+    @Composable
+    fun buttonColors(): VisualStateScheme<ButtonColor> = ButtonDefaults.subtleButtonColors(
+        default = ButtonColor(
+            fillColor = FluentTheme.colors.subtleFill.transparent,
+            contentColor = FluentTheme.colors.text.text.secondary,
+            borderBrush = SolidColor(Color.Transparent),
+        )
+    )
 
     /**
      * A composable function that displays a search icon.
