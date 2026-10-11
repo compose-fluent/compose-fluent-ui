@@ -30,6 +30,11 @@ Thank you for using our library. We look forward to receiving your feedback and 
 | wasmJs           | Web Browsers               |
 | js               | Web Browsers               |
 
+## WinUI MinGW experiment
+
+See [the experiment guide](docs/winui-mingw.md) to run the native Windows Gallery and
+use the Haze fork and generated sample code documents on this branch.
+
 ## Quick Start
 
 ### Add Dependency
@@ -219,5 +224,5 @@ This project is built upon the foundations laid by several remarkable open-sourc
 | [java-native-access/jna](https://github.com/java-native-access/jna) | Provides the capability to interact with Win32 APIs, enabling title bar customization. | [Apache License 2.0](https://github.com/java-native-access/jna/blob/master/LICENSE) |
 | [google/ksp](https://github.com/google/ksp) | Along with KotlinPoet, helps with source code generation for examples and navigation logic. | [Apache License 2.0](https://github.com/google/ksp/blob/main/LICENSE) |
 | [square/kotlinpoet](https://github.com/square/kotlinpoet) | Along with KSP, helps with source code generation for examples and navigation logic. | [Apache License 2.0](https://github.com/square/kotlinpoet/blob/main/LICENSE.txt) |
-| [SnipMeDev/Highlights](https://github.com/SnipMeDev/Highlights) | Enables syntax highlighting for example code. | [Apache License 2.0](https://github.com/SnipMeDev/Highlights/blob/main/LICENSE) |
+| [JetBrains/kotlin](https://github.com/JetBrains/kotlin) | Generates sample syntax documents from Kotlin ASTs at build time. | [Apache License 2.0](https://github.com/JetBrains/kotlin/blob/master/license/LICENSE.txt) |
 | [yshrsmz/BuildKonfig](https://github.com/yshrsmz/BuildKonfig) | Facilitates the generation of build configuration parameter classes. | [Apache License 2.0](https://github.com/yshrsmz/BuildKonfig/blob/master/LICENSE) |

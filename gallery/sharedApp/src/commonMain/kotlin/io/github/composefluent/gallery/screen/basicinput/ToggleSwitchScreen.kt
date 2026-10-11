@@ -1,5 +1,6 @@
 package io.github.composefluent.gallery.screen.basicinput
 
+import io.github.composefluent.gallery.code.KotlinCodeDocument
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +30,7 @@ fun ToggleSwitchScreen() {
         )
         Section(
             title = "A ToggleSwitch with custom header and content.",
-            sourceCode = ""
+            sourceCode = KotlinCodeDocument.Empty
         ) {
             TodoComponent()
         }

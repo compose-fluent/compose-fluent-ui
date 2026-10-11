@@ -4,16 +4,16 @@ haze = "2.0.1"
 kotlin = "2.4.20"
 ksp = "2.3.12"
 compose = "1.12.1"
+composeWinui = "1.12-SNAPSHOT"
 androidGradlePlugin = "9.3.1"
 androidBuildTools = "31.7.2"
 windowStyler = "0.3.3-SNAPSHOT"
-highlights = "1.0.0"
 kotlinx-datetime = "0.8.0"
 jna = "5.16.0"
 buildKonfig = "0.22.0"
 mavenPublish = "0.37.0"
-navigationEvent = "1.0.0"
-navigation3="1.0.0-alpha06"
+navigationEvent = "1.1.0"
+navigation3 = "1.1.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -37,7 +37,6 @@ squareup-kotlinpoet = "com.squareup:kotlinpoet:2.1.0"
 android-tools-common = { module = "com.android.tools:common", version.ref = "androidBuildTools" }
 android-tools-sdk-common = { module = "com.android.tools:sdk-common", version.ref = "androidBuildTools" }
 window-styler = { module = "com.mayakapps.compose:window-styler", version.ref = "windowStyler" }
-highlights = { module = "dev.snipme:highlights", version.ref = "highlights" }
 jna-platform = { module = "net.java.dev.jna:jna-platform-jpms", version.ref = "jna" }
 jna = { module = "net.java.dev.jna:jna-jpms", version.ref = "jna" }
 
@@ -50,6 +49,7 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
+compose-winui = { id = "compose-winui", version.ref = "composeWinui" }
 
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "androidGradlePlugin" }

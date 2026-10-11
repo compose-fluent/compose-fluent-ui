@@ -50,7 +50,7 @@ class SourceFilePathProcessor(environment: SymbolProcessorEnvironment): IProcess
                 sourceFileSpecBuilder
                     .addProperty(
                         PropertySpec.builder(
-                            it.fileName.removeSuffix(".kt"),
+                            it.fileName.removeSuffix(".kt").replace(".", "_"),
                             String::class
                         )
                             .addModifiers(KModifier.CONST)

@@ -237,7 +237,7 @@ fun App(
                 onBack = { navigator.navigateUp() },
                 transitionSpec = transitionSpec,
                 popTransitionSpec = transitionSpec,
-                sceneStrategy = GallerySceneStrategy(),
+                sceneStrategies = listOf(GallerySceneStrategy()),
                 modifier = Modifier.fillMaxSize(),
                 entryProvider = {
                     NavEntry(

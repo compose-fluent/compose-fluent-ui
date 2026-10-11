@@ -1,0 +1,5 @@
+[submodule "external/haze"]
+	path = external/haze
+	url = https://github.com/compose-fluent/haze.git
+	branch = codex/mingw-winui
+	shallow = true

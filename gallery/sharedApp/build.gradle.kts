@@ -10,14 +10,17 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.multiplatform)
-    alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.compose.winui)
+    alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.ksp)
     alias(libs.plugins.build.konfig)
 }
+val winui = providers.gradleProperty("fluent.winui").map(String::toBoolean).getOrElse(false)
+if (!winui) apply(plugin = "com.android.kotlin.multiplatform.library")
 
 kotlin {
-    applyTargets("gallery.shared")
-    listOf(
+    applyTargets("gallery.shared", winui = winui)
+    if (!winui) listOf(
         iosArm64(),
         iosSimulatorArm64()
     ).forEach {
@@ -34,18 +37,27 @@ kotlin {
                 implementation(project(":fluent"))
                 implementation(project(":fluent-icons-extended"))
                 implementation(libs.compose.ui.util)
-                implementation(libs.highlights)
+                api(project(":gallery:code-document"))
                 implementation(libs.androidx.navigation3.ui)
                 implementation(libs.androidx.navigationevent.compose)
                 implementation(project(":source-generated"))
             }
-            kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
+            kotlin.srcDir(
+                if (winui) "build/generated/ksp/mingwX64/mingwX64Main/kotlin"
+                else "build/generated/ksp/metadata/commonMain/kotlin"
+            )
+        }
+        if (winui) {
+            mingwX64Main {
+                // Generated declarations are shared Gallery APIs, so keep them in commonMain only.
+                kotlin.exclude { it.file.invariantSeparatorsPath.contains("/build/generated/ksp/") }
+            }
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
 
-        jvmMain.dependencies {
+        if (!winui) jvmMain.dependencies {
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.jna.platform)
             implementation(libs.jna)
@@ -75,20 +87,20 @@ ksp {
 
 dependencies {
     val processor = project(":gallery-processor")
-    add("kspCommonMainMetadata", processor)
+    add(if (winui) "kspMingwX64" else "kspCommonMainMetadata", processor)
 }
 
 // workaround for KSP only in Common Main.
 // https://github.com/google/ksp/issues/567
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
-    if (name != "kspCommonMainKotlinMetadata") {
-        dependsOn("kspCommonMainKotlinMetadata")
+    if (name != (if (winui) "kspKotlinMingwX64" else "kspCommonMainKotlinMetadata")) {
+        dependsOn(if (winui) "kspKotlinMingwX64" else "kspCommonMainKotlinMetadata")
     }
 }
 
 tasks.withType<KspAATask>().configureEach {
-    if (name != "kspCommonMainKotlinMetadata") {
-        dependsOn("kspCommonMainKotlinMetadata")
+    if (name != (if (winui) "kspKotlinMingwX64" else "kspCommonMainKotlinMetadata")) {
+        dependsOn(if (winui) "kspKotlinMingwX64" else "kspCommonMainKotlinMetadata")
     }
 }
 

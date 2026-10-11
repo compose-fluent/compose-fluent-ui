@@ -12,7 +12,15 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 @OptIn(ExperimentalWasmDsl::class, ExperimentalKotlinGradlePluginApi::class)
-fun KotlinMultiplatformExtension.applyTargets(namespaceModule: String = "") {
+fun KotlinMultiplatformExtension.applyTargets(namespaceModule: String = "", winui: Boolean = false) {
+    if (winui) {
+        jvmToolchain(25)
+        mingwX64()
+        // Single-target native builds compile the common sources with WinUI directly.
+        sourceSets.named("mingwX64Main") { kotlin.srcDir("src/skikoMain/kotlin") }
+        sourceSets.named("mingwX64Test") { kotlin.srcDir("src/skikoTest/kotlin") }
+        return
+    }
     jvm()
 
     extensions.findByType<KotlinMultiplatformAndroidLibraryTarget>()?.apply {

@@ -51,6 +51,7 @@ import io.github.composefluent.component.SubtleButton
 import io.github.composefluent.component.Text
 import io.github.composefluent.component.scrollbar
 import io.github.composefluent.icons.Icons
+import io.github.composefluent.gallery.code.KotlinCodeDocument
 import io.github.composefluent.icons.regular.ChevronDown
 
 @OptIn(ExperimentalFluentApi::class)
@@ -58,7 +59,7 @@ import io.github.composefluent.icons.regular.ChevronDown
 fun GallerySection(
     modifier: Modifier,
     title: String,
-    sourceCode: String,
+    sourceCode: KotlinCodeDocument,
     colors: Colors = FluentTheme.colors,
     output: (@Composable ColumnScope.() -> Unit)? = null,
     options: (@Composable ColumnScope.() -> Unit)? = null,
@@ -180,7 +181,7 @@ fun GallerySection(
                             icon = null,
                             heading = { Text("Kotlin", style = FluentTheme.typography.bodyStrong) },
                             color = Color.Transparent,
-                            trailing = { CopyButton(sourceCode, modifier = Modifier) },
+                            trailing = { CopyButton(sourceCode.source, modifier = Modifier) },
                             dropdown = null
                         )
                         val scrollState = rememberScrollState()

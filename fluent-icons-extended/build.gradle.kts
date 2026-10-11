@@ -7,16 +7,19 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
-    alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.compose.winui)
+    alias(libs.plugins.android.kotlin.multiplatform.library) apply false
     alias(libs.plugins.ksp)
     alias(libs.plugins.maven.publish)
 }
+val winui = providers.gradleProperty("fluent.winui").map(String::toBoolean).getOrElse(false)
+if (!winui) apply(plugin = "com.android.kotlin.multiplatform.library")
 
 group = BuildConfig.group
 version = BuildConfig.libraryVersion
 
 kotlin {
-    applyTargets(namespaceModule = ".icons.extended")
+    applyTargets(namespaceModule = ".icons.extended", winui = winui)
     sourceSets {
         commonMain.dependencies {
             implementation(libs.compose.foundation)
@@ -27,14 +30,14 @@ kotlin {
 
 dependencies {
     val processor = (project(":source-generated-processor"))
-    add("kspCommonMainMetadata", processor)
+    add(if (winui) "kspMingwX64" else "kspCommonMainMetadata", processor)
 }
 
 // workaround for KSP only in Common Main.
 // https://github.com/google/ksp/issues/567
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
-    if (name != "kspCommonMainKotlinMetadata") {
-        dependsOn("kspCommonMainKotlinMetadata")
+    if (name != (if (winui) "kspKotlinMingwX64" else "kspCommonMainKotlinMetadata")) {
+        dependsOn(if (winui) "kspKotlinMingwX64" else "kspCommonMainKotlinMetadata")
     }
 }
 

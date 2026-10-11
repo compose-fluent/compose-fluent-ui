@@ -8,51 +8,36 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.composefluent.component.Text
 import io.github.composefluent.gallery.LocalStore
-import dev.snipme.highlights.Highlights
-import dev.snipme.highlights.model.BoldHighlight
-import dev.snipme.highlights.model.ColorHighlight
-import dev.snipme.highlights.model.SyntaxLanguage
-import dev.snipme.highlights.model.SyntaxThemes
+import io.github.composefluent.gallery.code.KotlinCodeDocument
+import io.github.composefluent.gallery.code.KotlinCodePalette
 
+/** Runtime rendering consumes generated data, without a parser or highlighter. */
 @Composable
-fun SourceCode(code: String, language: SyntaxLanguage = SyntaxLanguage.KOTLIN, modifier: Modifier = Modifier) {
-    SelectionContainer {
-        val isDark = LocalStore.current.darkMode
-        val highLights = remember(code, language, isDark) {
-            Highlights.Builder()
-                .code(code)
-                .language(language)
-                .theme(SyntaxThemes.default(isDark))
-                .build()
-                .getHighlights()
-        }
-        val codeAnnotatedString = buildAnnotatedString {
-            append(code)
-            highLights.forEach {
-                when(it) {
-                    is ColorHighlight -> addStyle(
-                        style = SpanStyle(color = Color(it.rgb).copy(1f)),
-                        start = it.location.start,
-                        end = it.location.end
-                    )
-                    is BoldHighlight -> addStyle(
-                        style = SpanStyle(fontWeight = FontWeight.Bold),
-                        start = it.location.start,
-                        end = it.location.end
-                    )
-                }
+fun SourceCode(code: KotlinCodeDocument, modifier: Modifier = Modifier) {
+    val isDark = LocalStore.current.darkMode
+    val annotated = remember(code, isDark) {
+        val palette = if (isDark) KotlinCodePalette.Dark else KotlinCodePalette.Light
+        buildAnnotatedString {
+            append(code.source)
+            var start = 0
+            code.spans.forEach { span ->
+                val style = palette.style(span.kind)
+                addStyle(
+                    SpanStyle(
+                        color = Color(0xFF000000L or style.foreground.toLong()),
+                        fontStyle = if (style.italic) FontStyle.Italic else FontStyle.Normal,
+                    ),
+                    start, span.end,
+                )
+                start = span.end
             }
-
         }
-        Text(
-            modifier = modifier,
-            text = codeAnnotatedString,
-            fontFamily = FontFamily.Monospace,
-            overflow = TextOverflow.Visible
-        )
+    }
+    SelectionContainer {
+        Text(modifier = modifier, text = annotated, fontFamily = FontFamily.Monospace, overflow = TextOverflow.Visible)
     }
 }

@@ -3,6 +3,7 @@ package io.github.composefluent.gallery.screen.basicinput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import io.github.composefluent.gallery.code.KotlinCodeDocument
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,7 +76,7 @@ fun SliderScreen() {
             content = { BasicSliderSample(remember { SliderState(valueRange = 0f..100f) }) },
         )
 
-        Section("A vertical slider with range and tick marks specified.", "") {
+        Section("A vertical slider with range and tick marks specified.", KotlinCodeDocument.Empty) {
             TodoComponent()
         }
     }

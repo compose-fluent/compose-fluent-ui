@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
+import io.github.composefluent.gallery.code.KotlinCodeDocument
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +34,7 @@ import org.jetbrains.skiko.hostOs
 internal actual fun GalleryPageScope.PlatformTabViewSection() {
     Section(
         title = "TabView Window",
-        sourceCode = "",
+        sourceCode = KotlinCodeDocument.Empty,
         content = {
             val windowVisible = remember { mutableStateOf(false) }
             Button(

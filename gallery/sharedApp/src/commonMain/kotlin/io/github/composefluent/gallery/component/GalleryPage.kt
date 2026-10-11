@@ -21,6 +21,7 @@ import io.github.composefluent.FluentTheme
 import io.github.composefluent.component.scrollbar
 import io.github.composefluent.darkColors
 import io.github.composefluent.gallery.LocalStore
+import io.github.composefluent.gallery.code.KotlinCodeDocument
 import io.github.composefluent.lightColors
 
 @Composable
@@ -89,7 +90,7 @@ class GalleryPageScope(columnScope: ColumnScope, private val inverseTheme: () ->
     @Composable
     fun Section(
         title: String,
-        sourceCode: String,
+        sourceCode: KotlinCodeDocument,
         options: (@Composable ColumnScope.() -> Unit)? = null,
         output: (@Composable ColumnScope.() -> Unit)? = null,
         content: @Composable BoxScope.() -> Unit
