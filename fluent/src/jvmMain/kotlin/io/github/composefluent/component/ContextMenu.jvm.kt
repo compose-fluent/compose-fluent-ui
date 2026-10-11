@@ -189,34 +189,34 @@ internal object FluentTextContextMenu : TextContextMenu {
         val localization = LocalLocalization.current
         val items = {
             listOfNotNull(
-                textManager.cut?.let {
+                textManager.cut?.takeIf { it.enabled }?.let {
                     FluentContextMenuItem(
                         label = localization.cut,
-                        onClick = it,
+                        onClick = it.execute,
                         icon = FontIconPrimitive.Cut,
                         keyData = KeyData(Key.X, isCtrlPressed = true)
                     )
                 },
-                textManager.copy?.let {
+                textManager.copy?.takeIf { it.enabled }?.let {
                     FluentContextMenuItem(
                         label = localization.copy,
-                        onClick = it,
+                        onClick = it.execute,
                         icon = FontIconPrimitive.Copy,
                         keyData = KeyData(Key.C, isCtrlPressed = true)
                     )
                 },
-                textManager.paste?.let {
+                textManager.paste?.takeIf { it.enabled }?.let {
                     FluentContextMenuItem(
                         label = localization.paste,
-                        onClick = it,
+                        onClick = it.execute,
                         icon = FontIconPrimitive.Paste,
                         keyData = KeyData(Key.V, isCtrlPressed = true)
                     )
                 },
-                textManager.selectAll?.let {
+                textManager.selectAll?.takeIf { it.enabled }?.let {
                     FluentContextMenuItem(
                         label = localization.selectAll,
-                        onClick = it,
+                        onClick = it.execute,
                         keyData = KeyData(Key.A, isCtrlPressed = true),
                     )
                 },

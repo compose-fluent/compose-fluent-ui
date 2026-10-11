@@ -18,7 +18,6 @@ plugins {
 
 kotlin {
     listOf(
-        macosX64(),
         macosArm64()
     ).forEach {
         it.binaries {
@@ -61,7 +60,7 @@ compose.desktop {
 }
 
 val target = getTarget()
-if (target.startsWith("macos")) {
+if (target == "macosArm64") {
 
     //Workaround for https://youtrack.jetbrains.com/issue/CMP-9568
     val syncComposeResourceForDebug by tasks.registering(Sync::class) {
@@ -100,7 +99,7 @@ if (target.startsWith("macos")) {
 
 // Resource processor for macos arm64 target
 kotlin.targets.withType<KotlinNativeTarget> {
-    if (konanTarget === KonanTarget.MACOS_X64 || konanTarget === KonanTarget.MACOS_ARM64) {
+    if (konanTarget === KonanTarget.MACOS_ARM64) {
         binaries.withType<Executable> {
             val packageTasks = tasks.withType<AbstractNativeMacApplicationPackageAppDirTask>()
             packageTasks.configureEach {

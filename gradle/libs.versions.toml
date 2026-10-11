@@ -1,9 +1,9 @@
 [versions]
 activityCompose = "1.12.2"
-haze = "1.7.1"
-kotlin = "2.3.0"
-ksp = "2.3.4"
-compose = "1.10.0"
+haze = "2.0.1"
+kotlin = "2.4.20"
+ksp = "2.3.12"
+compose = "1.12.1"
 androidGradlePlugin = "9.3.1"
 androidBuildTools = "31.7.2"
 windowStyler = "0.3.3-SNAPSHOT"
@@ -27,6 +27,7 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose" }
 
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
 
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 ktor-client-java = "io.ktor:ktor-client-java:3.0.0"

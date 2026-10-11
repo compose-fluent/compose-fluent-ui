@@ -16,12 +16,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.composefluent.ExperimentalFluentApi
 import io.github.composefluent.FluentTheme
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
-import kotlin.jvm.JvmInline
 
 /**
  * Applies a [Material] effect to the content.
@@ -30,8 +30,7 @@ import kotlin.jvm.JvmInline
  * The material effect is defined by the [material] parameter and can be
  * enabled or disabled using the [enabled] lambda. When enabled, the
  * composable applies a haze effect based on the material's style.
- * When disabled, it fills the background with the first tint color defined in
- * the material's style.
+ * When disabled, it fills the background with [Material.fallbackColor].
  *
  * @param material The [Material] to apply to the content.
  * @param modifier The modifier to be applied to the container.
@@ -51,7 +50,7 @@ fun MaterialContainerScope.Material(
 ) {
     Layer(
         modifier = modifier.materialOverlay(material = material, enabled = enabled),
-        color = if (enabled()) Color.Transparent else material.style.tints.first().color,
+        color = if (enabled()) Color.Transparent else material.fallbackColor,
         border = border,
         backgroundSizing = BackgroundSizing.InnerBorderEdge
     ) {
@@ -94,8 +93,8 @@ private class MaterialContainerScopeImpl(boxScope: BoxScope) : MaterialContainer
     override fun Modifier.materialOverlay(material: Material, enabled: () -> Boolean): Modifier {
         return when {
             !enabled() -> this
-            else -> hazeEffect(
-                state = hazeState,
+            else -> hazeBlur(
+                input = HazeInput.Sources(hazeState),
                 style = material.style
             )
         }
@@ -182,9 +181,16 @@ interface MaterialContainerScope : BoxScope {
 
 }
 
-@JvmInline
+/**
+ * A blur [style] and its [fallbackColor], used when the material effect is disabled or unavailable.
+ *
+ * [fallbackColor] is stored separately because [HazeBlurStyle] does not expose its colors.
+ */
 @Immutable
-value class Material(val style: HazeStyle)
+data class Material(
+    val style: HazeBlurStyle,
+    val fallbackColor: Color = Color.Transparent
+)
 
 /**
  * Provides default [Material] configurations for common scenarios.
@@ -268,7 +274,7 @@ object MaterialDefaults {
     )
 
     /**
-     * A [HazeStyle] which implements a translucent material with accent color, intended for use as a popup container background.
+     * A [Material] which implements a translucent material with accent color, intended for use as a popup container background.
      *
      * This material applies an acrylic effect with the specified accent color, providing a subtle
      * visual distinction for popup elements. It adapts to both light and dark themes and provides
@@ -295,7 +301,7 @@ object MaterialDefaults {
     )
 
     /**
-     * A [HazeStyle] representing a translucent acrylic material intended for use as the most translucent background layer.
+     * A [Material] representing a translucent acrylic material intended for use as the most translucent background layer.
      *
      * This function provides a material style suitable for backgrounds where a high degree of translucency is desired.
      * It adapts to dark and light modes by adjusting tint and luminosity opacities, creating a subtle visual effect.
@@ -319,7 +325,7 @@ object MaterialDefaults {
     )
 
     /**
-     * A [HazeStyle] which implements a translucent material, suitable for popup container backgrounds.
+     * A [Material] which implements a translucent material, suitable for popup container backgrounds.
      *
      * This material provides a semi-transparent effect, ideal for use behind popups or dialogs.
      * It adapts to light and dark themes, adjusting its opacity and luminosity to ensure
@@ -344,7 +350,7 @@ object MaterialDefaults {
     )
 
     /**
-     * A [HazeStyle] which implements a translucent application background material.
+     * A [Material] which implements a translucent application background material.
      *
      * This material provides a subtle translucent effect, suitable for application backgrounds.
      * It adapts its appearance based on whether the app is in dark mode or light mode.
@@ -368,7 +374,7 @@ object MaterialDefaults {
     )
 
     /**
-     * A [HazeStyle] which implements a translucent application background material specifically designed for
+     * A [Material] which implements a translucent application background material specifically designed for
      * tab experiences. It provides an alternative to [mica] with adjusted opacity for improved tab
      * separation and visibility. The dark mode uses no tint, while light mode retains a tint, ensuring
      * appropriate contrast and visual appeal across both themes.
@@ -477,24 +483,30 @@ object MaterialDefaults {
         lightLuminosityOpacity: Float,
         darkTintOpacity: Float,
         darkLuminosityOpacity: Float,
-    ): Material = Material(
-        HazeStyle(
-            blurRadius = blurRadius,
-            noiseFactor = noiseFactor,
-            backgroundColor = backgroundColor,
-            tints = listOf(
-                HazeTint(
-                    color = containerColor.copy(if (isDark) darkTintOpacity else lightTintOpacity),
-                    blendMode = BlendMode.Hardlight,
-                ),
-                HazeTint(
-                    color = containerColor.copy(if (isDark) darkLuminosityOpacity else lightLuminosityOpacity),
-                    blendMode = BlendMode.Luminosity,
+    ): Material {
+        val tintColor = containerColor.copy(if (isDark) darkTintOpacity else lightTintOpacity)
+        return Material(
+            style = HazeBlurStyle {
+                blurRadius(blurRadius)
+                noiseFactor(noiseFactor)
+                backgroundColor(backgroundColor)
+                colorEffects(
+                    listOf(
+                        HazeColorEffect.tint(
+                            color = tintColor,
+                            blendMode = BlendMode.Hardlight,
+                        ),
+                        HazeColorEffect.tint(
+                            color = containerColor.copy(if (isDark) darkLuminosityOpacity else lightLuminosityOpacity),
+                            blendMode = BlendMode.Luminosity,
+                        )
+                    )
                 )
-            ),
-            fallbackTint = HazeTint(fallbackColor),
+                fallbackColorEffect(HazeColorEffect.tint(fallbackColor))
+            },
+            fallbackColor = fallbackColor,
         )
-    )
+    }
 
     private fun Color(color: Int, alpha: Float): Color {
         return Color(color).copy(alpha = alpha)

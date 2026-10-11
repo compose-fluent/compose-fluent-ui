@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        type: [PublishLibrary, Android, Windows, Linux, macOS, macosArm64, macosX64, iOS, WasmJs, Js]
+        type: [PublishLibrary, Android, Windows, Linux, macOS, macosArm64, iOS, WasmJs, Js]
         include:
           - type: PublishLibrary
             publish: release
@@ -54,11 +54,6 @@ jobs:
           - type: macosArm64
             native: dmg
             os: macos-latest
-            module: macosApp
-
-          - type: macosX64
-            native: dmg
-            os: macos-15-intel
             module: macosApp
 
           - type: iOS

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.layout.LazyLayout
+import androidx.compose.foundation.lazy.layout.LazyLayoutMeasurePolicy
 import androidx.compose.foundation.lazy.layout.LazyLayoutMeasureScope
 import androidx.compose.foundation.lazy.layout.LazyLayoutPrefetchState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -265,7 +266,7 @@ internal fun rememberOverflowRowItemMeasurePolicy(
     verticalAlignment: Alignment.Vertical,
     contentPadding: PaddingValues,
     alwaysShowOverflowAction: Boolean
-) = remember<LazyLayoutMeasureScope.(Constraints) -> MeasureResult>(
+) = remember<LazyLayoutMeasurePolicy>(
     state,
     itemProviderLambda,
     horizontalArrangement,
@@ -273,10 +274,10 @@ internal fun rememberOverflowRowItemMeasurePolicy(
     contentPadding,
     alwaysShowOverflowAction
 ) {
-    block@ { constraints ->
+    LazyLayoutMeasurePolicy { constraints ->
         val itemProvider = itemProviderLambda()
         if (itemProvider.itemCount <= 1) {
-            return@block layout(0, 0) {}
+            return@LazyLayoutMeasurePolicy layout(0, 0) {}
         }
         val topPadding = contentPadding.calculateTopPadding().toPx()
         val bottomPadding = contentPadding.calculateBottomPadding().toPx()
