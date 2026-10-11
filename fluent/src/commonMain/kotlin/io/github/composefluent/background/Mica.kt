@@ -9,8 +9,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import io.github.composefluent.FluentTheme
 import io.github.composefluent.LocalContentColor
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 
 /**
@@ -57,7 +58,12 @@ fun Mica(
         ) {
             background()
         }
-        Box(modifier = Modifier.fillMaxSize().hazeEffect(state = hazeState, style = MaterialDefaults.mica().style)) {
+        Box(
+            modifier = Modifier.fillMaxSize().hazeBlur(
+                input = HazeInput.Sources(hazeState),
+                style = MaterialDefaults.mica().style
+            )
+        ) {
             CompositionLocalProvider(
                 LocalContentColor provides FluentTheme.colors.text.text.primary
             ) {

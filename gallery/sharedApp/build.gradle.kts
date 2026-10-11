@@ -1,4 +1,5 @@
 import com.codingfeline.buildkonfig.compiler.FieldSpec
+import com.google.devtools.ksp.gradle.KspAATask
 import io.github.composefluent.plugin.build.BuildConfig
 import io.github.composefluent.plugin.build.applyTargets
 import org.gradle.kotlin.dsl.withType
@@ -17,7 +18,6 @@ plugins {
 kotlin {
     applyTargets("gallery.shared")
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach {
@@ -81,6 +81,12 @@ dependencies {
 // workaround for KSP only in Common Main.
 // https://github.com/google/ksp/issues/567
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    if (name != "kspCommonMainKotlinMetadata") {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+
+tasks.withType<KspAATask>().configureEach {
     if (name != "kspCommonMainKotlinMetadata") {
         dependsOn("kspCommonMainKotlinMetadata")
     }
