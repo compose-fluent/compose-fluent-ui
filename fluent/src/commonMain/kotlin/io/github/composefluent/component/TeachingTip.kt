@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -71,7 +70,7 @@ import kotlin.math.min
  * @param visible Whether the teaching tip is visible. This overload does not update this value.
  * @param onDismissRequest Called when the teaching tip requests dismissal. The callback should
  * update the state backing [visible].
- * @param title The title shown at the top of the non-hero area. Its default text style is
+ * @param title Optional title shown at the top of the non-hero area. Its default text style is
  * `bodyStrong` from [FluentTheme.typography].
  * @param modifier The modifier applied to the teaching tip surface.
  * @param icon Optional icon shown at the start of the title and content column. The recommended
@@ -84,7 +83,10 @@ import kotlin.math.min
  * @param secondaryAction Optional secondary action. It occupies the start slot when [action] is
  * also present; a single supplied action always occupies the end slot.
  * @param closeAction Optional close action shown at the top end of the non-hero area.
- * @param focusable Whether the teaching tip receives focus and can dismiss on outside interaction.
+ * @param focusable Whether the teaching tip receives keyboard focus.
+ * @param dismissOnClickOutside Whether clicking outside requests dismissal. Defaults to `false`.
+ * When enabled, [closeAction] is hidden; bottom actions remain available.
+ * @param dismissOnBackPress Whether Escape/back requests dismissal. Requires [focusable].
  * @param content The main teaching tip content. Its default text style is `body` from
  * [FluentTheme.typography].
  */
@@ -92,7 +94,7 @@ import kotlin.math.min
 fun TeachingTip(
     visible: Boolean,
     onDismissRequest: () -> Unit,
-    title: @Composable () -> Unit,
+    title: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     icon: (@Composable () -> Unit)? = null,
     target: Rect? = null,
@@ -102,6 +104,8 @@ fun TeachingTip(
     secondaryAction: (@Composable () -> Unit)? = null,
     closeAction: (@Composable () -> Unit)? = null,
     focusable: Boolean = true,
+    dismissOnClickOutside: Boolean = false,
+    dismissOnBackPress: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     TeachingTipPopup(
@@ -119,6 +123,8 @@ fun TeachingTip(
         secondaryAction = secondaryAction,
         closeAction = closeAction,
         focusable = focusable,
+        dismissOnClickOutside = dismissOnClickOutside,
+        dismissOnBackPress = dismissOnBackPress,
     )
 }
 
@@ -173,7 +179,7 @@ interface TeachingTipContainerScope {
      * [visible] and [onDismissRequest] use [isTeachingTipVisible] by default. When [visible] is
      * backed by different state, provide a matching [onDismissRequest] that updates that state.
      *
-     * @param title The title shown at the top of the non-hero area. Its default text style is
+     * @param title Optional title shown at the top of the non-hero area. Its default text style is
      * `bodyStrong` from [FluentTheme.typography].
      * @param modifier The modifier applied to the teaching tip surface.
      * @param visible Whether the teaching tip is visible. Defaults to [isTeachingTipVisible].
@@ -188,13 +194,16 @@ interface TeachingTipContainerScope {
      * @param secondaryAction Optional secondary action. It occupies the start slot when [action] is
      * also present; a single supplied action always occupies the end slot.
      * @param closeAction Optional close action shown at the top end of the non-hero area.
-     * @param focusable Whether the teaching tip receives focus and can dismiss on outside interaction.
+     * @param focusable Whether the teaching tip receives keyboard focus.
+     * @param dismissOnClickOutside Whether clicking outside requests dismissal. Defaults to `false`.
+     * When enabled, [closeAction] is hidden; bottom actions remain available.
+     * @param dismissOnBackPress Whether Escape/back requests dismissal. Requires [focusable].
      * @param content The main teaching tip content. Its default text style is `body` from
      * [FluentTheme.typography].
      */
     @Composable
     fun TeachingTip(
-        title: @Composable () -> Unit,
+        title: (@Composable () -> Unit)? = null,
         modifier: Modifier = Modifier,
         visible: Boolean = isTeachingTipVisible,
         onDismissRequest: () -> Unit = { isTeachingTipVisible = false },
@@ -205,6 +214,8 @@ interface TeachingTipContainerScope {
         secondaryAction: (@Composable () -> Unit)? = null,
         closeAction: (@Composable () -> Unit)? = null,
         focusable: Boolean = true,
+        dismissOnClickOutside: Boolean = false,
+        dismissOnBackPress: Boolean = true,
         content: @Composable () -> Unit,
     ) {
         TeachingTipPopup(
@@ -222,6 +233,8 @@ interface TeachingTipContainerScope {
             secondaryAction = secondaryAction,
             closeAction = closeAction,
             focusable = focusable,
+            dismissOnClickOutside = dismissOnClickOutside,
+            dismissOnBackPress = dismissOnBackPress,
         )
     }
 }
@@ -243,6 +256,7 @@ object TeachingTipDefaults {
 
     /**
      * Displays the standard icon-only close button for a teaching tip.
+     * Uses the standard icon-only subtle button with 4.dp outer padding on each side.
      *
      * @param onClick Called when the button is clicked.
      * @param modifier The modifier applied to the button.
@@ -259,11 +273,15 @@ object TeachingTipDefaults {
     ) {
         SubtleButton(
             onClick = onClick,
-            modifier = modifier.defaultMinSize(32.dp, 32.dp),
+            modifier = modifier.padding(4.dp),
             disabled = !enabled,
             iconOnly = true,
         ) {
-            Icon(Icons.Default.Dismiss, contentDescription = contentDescription)
+            Icon(
+                Icons.Default.Dismiss,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(16.dp),
+            )
         }
     }
 }
@@ -272,7 +290,7 @@ object TeachingTipDefaults {
 private fun TeachingTipPopup(
     visible: Boolean,
     onDismissRequest: () -> Unit,
-    title: @Composable () -> Unit,
+    title: (@Composable () -> Unit)?,
     content: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     icon: (@Composable () -> Unit)?,
@@ -284,6 +302,8 @@ private fun TeachingTipPopup(
     secondaryAction: (@Composable () -> Unit)?,
     closeAction: (@Composable () -> Unit)?,
     focusable: Boolean,
+    dismissOnClickOutside: Boolean,
+    dismissOnBackPress: Boolean,
 ) {
     val targeted = target != null || usesContainerTarget
     val cornerRadius = FluentTheme.cornerRadius.overlay
@@ -314,6 +334,8 @@ private fun TeachingTipPopup(
         color = FluentTheme.colors.background.solid.tertiary,
         strokeColor = FluentTheme.colors.stroke.surface.default,
         useAcrylic = false,
+        dismissOnClickOutside = dismissOnClickOutside,
+        dismissOnBackPress = dismissOnBackPress,
     ) {
         TeachingTipLayout(
             tailEdge = positionProvider.tailEdge,
@@ -325,7 +347,7 @@ private fun TeachingTipPopup(
             hero = hero,
             action = action,
             secondaryAction = secondaryAction,
-            closeAction = closeAction,
+            closeAction = closeAction.takeUnless { dismissOnClickOutside },
         )
     }
 }
@@ -335,7 +357,7 @@ private fun TeachingTipLayout(
     tailEdge: TeachingTipTailEdge,
     targeted: Boolean,
     placement: FlyoutPlacement,
-    title: @Composable () -> Unit,
+    title: (@Composable () -> Unit)?,
     content: @Composable () -> Unit,
     icon: (@Composable () -> Unit)?,
     hero: (@Composable () -> Unit)?,
@@ -454,7 +476,7 @@ private fun TeachingTipHero(hero: @Composable () -> Unit) {
 
 @Composable
 private fun TeachingTipBody(
-    title: @Composable () -> Unit,
+    title: (@Composable () -> Unit)?,
     content: @Composable () -> Unit,
     icon: (@Composable () -> Unit)?,
     action: (@Composable () -> Unit)?,
@@ -481,22 +503,23 @@ private fun TeachingTipBody(
                     icon()
                 }
             }
-            Column(Modifier.weight(1f)) {
-                CompositionLocalProvider(LocalTextStyle provides titleTextStyle) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start = if (icon == null) {
-                                    TeachingTipDefaults.TitleHorizontalPadding
-                                } else {
-                                    0.dp
-                                },
-                                top = TeachingTipDefaults.TitleTopPadding,
-                                end = if (!hasCloseAction) TeachingTipDefaults.TitleHorizontalPadding else 0.dp,
-                            ),
-                    ) {
-                        title()
+            Column(Modifier.weight(1f).padding(top = TeachingTipDefaults.TitleTopPadding)) {
+                if (title != null) {
+                    CompositionLocalProvider(LocalTextStyle provides titleTextStyle) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = if (icon == null) {
+                                        TeachingTipDefaults.TitleHorizontalPadding
+                                    } else {
+                                        0.dp
+                                    },
+                                    end = if (!hasCloseAction) TeachingTipDefaults.TitleHorizontalPadding else 0.dp,
+                                ),
+                        ) {
+                            title()
+                        }
                     }
                 }
 

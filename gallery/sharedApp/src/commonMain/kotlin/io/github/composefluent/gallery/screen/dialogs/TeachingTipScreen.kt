@@ -51,6 +51,9 @@ fun TeachingTipScreen() {
         componentPath = FluentSourceFile.TeachingTip,
         galleryPath = ComponentPagePath.TeachingTipScreen,
     ) {
+        var showTitle by remember { mutableStateOf(true) }
+        var dismissOnClickOutside by remember { mutableStateOf(false) }
+        var focusable by remember { mutableStateOf(false) }
         var showIcon by remember { mutableStateOf(true) }
         var showHero by remember { mutableStateOf(true) }
         var showAction by remember { mutableStateOf(true) }
@@ -61,6 +64,9 @@ fun TeachingTipScreen() {
             sourceCode = sourceCodeOfConfigurableTeachingTipSlotsSample,
             content = {
                 ConfigurableTeachingTipSlotsSample(
+                    showTitle = showTitle,
+                    dismissOnClickOutside = dismissOnClickOutside,
+                    focusable = focusable,
                     showIcon = showIcon,
                     showHero = showHero,
                     showAction = showAction,
@@ -69,6 +75,21 @@ fun TeachingTipScreen() {
                 )
             },
             options = {
+                CheckBox(
+                    checked = showTitle,
+                    onCheckStateChange = { showTitle = it },
+                    label = "Show title",
+                )
+                CheckBox(
+                    checked = dismissOnClickOutside,
+                    onCheckStateChange = { dismissOnClickOutside = it },
+                    label = "Dismiss on click outside (hides close action)",
+                )
+                CheckBox(
+                    checked = focusable,
+                    onCheckStateChange = { focusable = it },
+                    label = "Focusable (configure before opening)",
+                )
                 CheckBox(
                     checked = showIcon,
                     onCheckStateChange = { showIcon = it },
@@ -122,6 +143,9 @@ fun TeachingTipScreen() {
 @Sample
 @Composable
 private fun ConfigurableTeachingTipSlotsSample(
+    showTitle: Boolean,
+    dismissOnClickOutside: Boolean,
+    focusable: Boolean,
     showIcon: Boolean,
     showHero: Boolean,
     showAction: Boolean,
@@ -131,7 +155,7 @@ private fun ConfigurableTeachingTipSlotsSample(
     TeachingTipContainer(
         teachingTip = {
             TeachingTip(
-                title = { Text("Inspect the layout") },
+                title = if (showTitle) { { Text("Inspect the layout") } } else null,
                 placement = FlyoutPlacement.Bottom,
                 icon = if (showIcon) {
                     {
@@ -193,7 +217,8 @@ private fun ConfigurableTeachingTipSlotsSample(
                 } else {
                     null
                 },
-                focusable = false,
+                focusable = focusable,
+                dismissOnClickOutside = dismissOnClickOutside,
                 content = {
                     Text("Toggle the optional slots to inspect their spacing and alignment.")
                 },

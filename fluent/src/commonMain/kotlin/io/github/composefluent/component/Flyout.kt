@@ -235,6 +235,8 @@ internal fun BasicFlyout(
     color: Color = FluentTheme.colors.background.acrylic.default,
     strokeColor: Color = FluentTheme.colors.stroke.surface.flyout,
     useAcrylic: Boolean = LocalAcrylicPopupEnabled.current,
+    dismissOnClickOutside: Boolean = true,
+    dismissOnBackPress: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val visibleState = remember {
@@ -246,7 +248,9 @@ internal fun BasicFlyout(
             onDismissRequest = onDismissRequest,
             properties = PopupProperties(
                 clippingEnabled = false,
-                focusable = focusable
+                focusable = focusable,
+                dismissOnClickOutside = dismissOnClickOutside,
+                dismissOnBackPress = dismissOnBackPress,
             ),
             popupPositionProvider = positionProvider,
             onKeyEvent = onKeyEvent,
