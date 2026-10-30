@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -82,13 +83,25 @@ import io.github.composefluent.component.FontIconSize
 import io.github.composefluent.component.RepeatButton
 import io.github.composefluent.component.SubtleButton
 import io.github.composefluent.component.Text
-import io.github.composefluent.platform.indicatesPreciseScrollInput
+import io.github.composefluent.platform.PlatformScrollInfo
+import io.github.composefluent.platform.ScrollInput
+import io.github.composefluent.platform.ScrollSettling
+import io.github.composefluent.platform.platformScrollInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.time.TimeSource
 
 @Stable
 internal interface PickerWheelData<T : Any> {
@@ -225,6 +238,10 @@ internal fun <T : Any> PickerWheel(
     DisposableEffect(mouseWheelSnapController) {
         onDispose { mouseWheelSnapController.cancel() }
     }
+    val snapFlingBehavior = rememberSnapFlingBehavior(listState)
+    val wheelFlingBehavior = remember(snapFlingBehavior) {
+        PickerWheelFlingBehavior(snapFlingBehavior)
+    }
 
     fun targetFirstVisibleItemIndex(targetVirtualIndex: Int): Int =
         if (effectiveLooping) {
@@ -290,32 +307,17 @@ internal fun <T : Any> PickerWheel(
     Box(modifier.hoverable(interactionSource)) {
         LazyColumn(
             state = listState,
-            flingBehavior = rememberSnapFlingBehavior(listState),
+            flingBehavior = wheelFlingBehavior,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(vertical = contentPadding),
             verticalArrangement = Arrangement.Center,
             userScrollEnabled = true,
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(mouseWheelSnapController) {
+                .pointerInput(mouseWheelSnapController, wheelFlingBehavior) {
                     coroutineScope {
-                        var preciseScrollSequence = false
                         launch {
-                            var observedScrollInProgress = false
-                            snapshotFlow { listState.isScrollInProgress }.collect { isScrolling ->
-                                if (isScrolling) {
-                                    observedScrollInProgress = true
-                                } else if (observedScrollInProgress) {
-                                    // Mouse-wheel scrolling hands off to snapping in a new
-                                    // coroutine. Confirm on the next frame so that transition is
-                                    // not mistaken for the end of the complete scroll sequence.
-                                    withFrameNanos { }
-                                    if (!listState.isScrollInProgress) {
-                                        preciseScrollSequence = false
-                                        observedScrollInProgress = false
-                                    }
-                                }
-                            }
+                            wheelFlingBehavior.resetWhenIdle(listState)
                         }
 
                         while (true) {
@@ -326,25 +328,28 @@ internal fun <T : Any> PickerWheel(
                                 PointerEventType.Scroll -> {
                                     val change = event.changes.first()
                                     val scrollDelta = change.scrollDelta.y
-                                    val wasPreciseScrollSequence = preciseScrollSequence
-                                    if (event.indicatesPreciseScrollInput()) {
-                                        preciseScrollSequence = true
-                                    }
-
-                                    if (preciseScrollSequence) {
+                                    val scrollInfo = event.platformScrollInfo()
+                                    val wasPreciseScrollSequence = wheelFlingBehavior.isPreciseScroll
+                                    if (wasPreciseScrollSequence || scrollInfo.input == ScrollInput.Continuous) {
+                                        wheelFlingBehavior.onPreciseScroll(scrollInfo)
                                         if (!wasPreciseScrollSequence) {
                                             mouseWheelSnapController.cancelAndJoin()
                                         }
-                                    } else if (scrollDelta != 0f) {
+                                    } else if (scrollInfo.input == ScrollInput.Wheel && scrollDelta != 0f) {
                                         event.changes.forEach { it.consume() }
                                         mouseWheelSnapController.onMouseWheel(
                                             scrollDelta = scrollDelta,
                                             uptimeMillis = change.uptimeMillis
                                         )
+                                    } else if (scrollInfo.input == ScrollInput.Unknown) {
+                                        mouseWheelSnapController.cancelAndJoin()
                                     }
                                 }
 
-                                PointerEventType.Press -> mouseWheelSnapController.cancelAndJoin()
+                                PointerEventType.Press, PointerEventType.PanStart -> {
+                                    wheelFlingBehavior.resetPreciseScroll()
+                                    mouseWheelSnapController.cancelAndJoin()
+                                }
                                 PointerEventType.Enter -> focusRequester.requestFocus()
                                 else -> Unit
                             }
@@ -517,6 +522,80 @@ private fun PickerWheelItemText(
             }
         }
     )
+}
+
+private class PickerWheelFlingBehavior(
+    private val snapFlingBehavior: FlingBehavior
+) : FlingBehavior {
+    private val lastPreciseScroll = MutableStateFlow<ContinuousScroll?>(null)
+
+    val isPreciseScroll: Boolean
+        get() = lastPreciseScroll.value != null
+
+    fun onPreciseScroll(info: PlatformScrollInfo) {
+        // Wheel-like packets can occur later in a confirmed continuous AWT sequence. Keep
+        // its settling policy too, not just the input type, until scrolling AND snapping end.
+        val settling = if (info.input == ScrollInput.Continuous) {
+            info.settling
+        } else {
+            lastPreciseScroll.value?.settling ?: info.settling
+        }
+        lastPreciseScroll.value = ContinuousScroll(settling, TimeSource.Monotonic.markNow())
+    }
+
+    fun resetPreciseScroll() {
+        lastPreciseScroll.value = null
+    }
+
+    suspend fun resetWhenIdle(listState: LazyListState) {
+        combine(
+            snapshotFlow { listState.isScrollInProgress },
+            lastPreciseScroll
+        ) { isScrolling, event -> if (isScrolling) null else event }
+            .collectLatest { event ->
+                if (event == null) return@collectLatest
+                event.awaitSettling()
+                // Foundation hands off scrolling to fling in a new coroutine. Also allow
+                // native momentum to begin after a finger-up before releasing the sequence.
+                withFrameNanos { }
+                if (!listState.isScrollInProgress && lastPreciseScroll.value === event) {
+                    resetPreciseScroll()
+                }
+            }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+        val settling = lastPreciseScroll.value?.settling
+        if (settling == null || settling == ScrollSettling.PlatformDefault) {
+            return with(snapFlingBehavior) { performFling(initialVelocity) }
+        }
+
+        // Foundation can finish a Scroll batch on a subpixel delta or a short gap. Neither
+        // ends native momentum. Even deltas too small for LazyColumn to consume must cancel
+        // a pending/running snap, without consuming or reinterpreting the platform's delta.
+        return lastPreciseScroll.mapLatest { event ->
+            if (event == null) return@mapLatest 0f
+            event.awaitSettling()
+            // Native momentum has already moved the list: only align the nearest item.
+            val velocity = if (event.settling == ScrollSettling.PlatformDefault) initialVelocity else 0f
+            with(snapFlingBehavior) { performFling(velocity) }
+        }.first()
+    }
+
+    private class ContinuousScroll(
+        val settling: ScrollSettling,
+        val time: TimeSource.Monotonic.ValueTimeMark
+    ) {
+        suspend fun awaitSettling() {
+            when (val policy = settling) {
+                ScrollSettling.PlatformDefault -> Unit
+                ScrollSettling.AwaitEnd -> awaitCancellation()
+                ScrollSettling.Ended -> withFrameNanos { }
+                is ScrollSettling.AfterIdle -> delay(policy.timeout - time.elapsedNow())
+            }
+        }
+    }
 }
 
 private class MouseWheelSnapController(
