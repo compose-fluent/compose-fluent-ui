@@ -48,6 +48,7 @@ import io.github.composefluent.icons.regular.ArrowRight
 import io.github.composefluent.icons.regular.CalendarLtr
 import io.github.composefluent.icons.regular.ChevronDown
 import io.github.composefluent.icons.regular.ChevronUp
+import io.github.composefluent.icons.regular.ChevronUpDown
 import io.github.composefluent.icons.regular.ClipboardPaste
 import io.github.composefluent.icons.regular.Copy
 import io.github.composefluent.icons.regular.Cut
@@ -162,6 +163,7 @@ enum class FontIconPrimitive(
     ChevronDown('\uE972', { Icons.Default.ChevronDown }),
     ChevronRight('\uE974', { Icons.Filled.ChevronRight }),
     ChevronUp('\uE70E', { Icons.Default.ChevronUp }),
+    ChevronUpDown('\uEC8F', { Icons.Default.ChevronUpDown }),
     ChromeBack('\uE830', { Icons.Default.ArrowLeft }),
     Close('\uE624', { Icons.Default.Dismiss }),
     Copy('\uE8C8', { Icons.Default.Copy }),
