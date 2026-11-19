@@ -43,6 +43,12 @@ import io.github.composefluent.icons.filled.ChevronRight
 import io.github.composefluent.icons.filled.MoreHorizontal
 import io.github.composefluent.icons.filled.Star
 import io.github.composefluent.icons.regular.Add
+import io.github.composefluent.icons.regular.Share
+import io.github.composefluent.icons.regular.ArrowRedo
+import io.github.composefluent.icons.regular.ArrowUndo
+import io.github.composefluent.icons.regular.TextUnderline
+import io.github.composefluent.icons.regular.TextItalic
+import io.github.composefluent.icons.regular.TextBold
 import io.github.composefluent.icons.regular.ArrowLeft
 import io.github.composefluent.icons.regular.ArrowRight
 import io.github.composefluent.icons.regular.CalendarLtr
@@ -171,6 +177,12 @@ enum class FontIconPrimitive(
     GlobalNavigation('\uE700', { Icons.Default.Navigation }),
     More('\uE712', { Icons.Filled.MoreHorizontal }),
     Paste('\uE77F', { Icons.Default.ClipboardPaste }),
+    Bold('\uE8DD', { Icons.Default.TextBold }),
+    Italic('\uE8DB', { Icons.Default.TextItalic }),
+    Underline('\uE8DC', { Icons.Default.TextUnderline }),
+    Undo('\uE7A7', { Icons.Default.ArrowUndo }),
+    Redo('\uE7A6', { Icons.Default.ArrowRedo }),
+    Share('\uE72D', { Icons.Default.Share }),
     RatingStar('\uE734', { Icons.Default.Star }),
     RevealPassword('\uF78D', { Icons.Default.Eye }),
     Search('\uF78B', { Icons.Default.Search }),

@@ -118,30 +118,12 @@ internal object FluentContextMenuRepresentation : ContextMenuRepresentation {
                         trailing = {
                             it.keyData?.let { keyData ->
                                 val keyString = remember(keyData) {
-                                    buildString {
-                                        if (!hostOs.isMacOS) {
-                                            if (keyData.isAltPressed) {
-                                                append("Alt+")
-                                            }
-                                            if (keyData.isCtrlPressed) {
-                                                append("Ctrl+")
-                                            }
-                                            if (keyData.isShiftPressed) {
-                                                append("Shift+")
-                                            }
-                                        } else {
-                                            if (keyData.isAltPressed) {
-                                                append("⌥ ")
-                                            }
-                                            if (keyData.isCtrlPressed) {
-                                                append("⌘ ")
-                                                }
-                                            if (keyData.isShiftPressed) {
-                                                append("⇧ ")
-                                            }
-                                        }
-                                        append(keyData.key.toString().removePrefix("Key: "))
-                                    }
+                                    menuShortcutLabel(
+                                        key = keyData.key.toString().removePrefix("Key: "),
+                                        ctrl = keyData.isCtrlPressed,
+                                        shift = keyData.isShiftPressed,
+                                        alt = keyData.isAltPressed
+                                    )
                                 }
                                 Text(
                                     text = keyString,

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.plus
 import androidx.compose.ui.window.PopupPositionProvider
 import io.github.composefluent.ExperimentalFluentApi
+import io.github.composefluent.LocalAcrylicPopupEnabled
 import io.github.composefluent.FluentTheme
 import io.github.composefluent.ProvideTextStyle
 import io.github.composefluent.animation.FluentDuration
@@ -297,6 +298,9 @@ object TooltipBoxDefaults {
     ) {
 
         AcrylicPopupContent(
+            color = FluentTheme.colors.background.acrylic.default,
+            strokeColor = FluentTheme.colors.stroke.surface.flyout,
+            useAcrylic = LocalAcrylicPopupEnabled.current,
             elevation = ElevationDefaults.tooltip,
             visibleState = visibleState,
             enterTransition = fadeIn(
