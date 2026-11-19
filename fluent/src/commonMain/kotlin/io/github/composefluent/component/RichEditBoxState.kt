@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.toTextFieldBuffer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -32,6 +33,7 @@ import kotlin.time.TimeSource
  * groups; zero disables history. [maxEstimatedBytes] is a soft budget: one oversized checkpoint
  * is retained so that the most recent edit remains undoable.
  */
+@Immutable
 data class RichEditHistoryPolicy(
     val maxEntries: Int = 100,
     val maxEstimatedBytes: Long = 2L * 1024 * 1024

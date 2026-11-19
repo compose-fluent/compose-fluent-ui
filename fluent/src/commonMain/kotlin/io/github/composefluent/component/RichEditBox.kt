@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,20 +111,24 @@ fun RichEditBox(
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var viewport by remember { mutableStateOf(Rect.Zero) }
     var textOrigin by remember { mutableStateOf(Offset.Zero) }
-    val selection = state.selection
     var dismissed by remember(state) { mutableStateOf(false) }
-    LaunchedEffect(selection, focused) { dismissed = false }
     val editable = enabled && !readOnly
     var pointerDown by remember { mutableStateOf(false) }
     var touchInput by remember { mutableStateOf(false) }
     LaunchedEffect(state) {
-        snapshotFlow { state.selection }.collect { state.selectionChanged() }
+        snapshotFlow { state.selection }.collect {
+            state.selectionChanged()
+            dismissed = false
+        }
     }
 
     val focusRequester = remember { FocusRequester() }
     var fieldCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var contextAnchor by remember(state, enabled) { mutableStateOf<Rect?>(null) }
-    LaunchedEffect(focused) { if (!focused) contextAnchor = null }
+    LaunchedEffect(focused) {
+        dismissed = false
+        if (!focused) contextAnchor = null
+    }
 
     Box(modifier = modifier, propagateMinConstraints = true) {
         RichEditFieldContext {
@@ -165,7 +171,7 @@ fun RichEditBox(
                     }
                     .onPreviewKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown && event.key == Key.Escape &&
-                            (contextAnchor != null || (!selection.collapsed && showFormattingToolbar && !dismissed))) {
+                            (contextAnchor != null || (!state.selection.collapsed && showFormattingToolbar && !dismissed))) {
                             contextAnchor = null
                             dismissed = true
                             true
@@ -217,23 +223,23 @@ fun RichEditBox(
             )
         }
 
-        val anchor = when {
-            !focused || dismissed || pointerDown -> null
-            contextAnchor != null -> contextAnchor
-            !editable || !showFormattingToolbar || selection.collapsed -> null
-            else -> {
-                val currentLayout = layout
-                val scroll = scrollState.value
-                val length = state.text.length
-                remember(currentLayout, selection, textOrigin, viewport, scroll, length) {
-                    currentLayout?.takeIf { it.layoutInput.text.length == length }
-                        ?.getPathForRange(selection.min, selection.max)?.getBounds()
-                        ?.translate(textOrigin - Offset(0f, scroll.toFloat()))
-                        ?.intersect(viewport)
-                        ?.takeUnless { it.isEmpty }
+        val anchor = remember(state, interactionSource, editable, enabled, showFormattingToolbar, scrollState) {
+            derivedStateOf(structuralEqualityPolicy()) {
+                when {
+                    !focused || dismissed || pointerDown -> null
+                    contextAnchor != null -> contextAnchor
+                    !editable || !showFormattingToolbar || state.selection.collapsed -> null
+                    else -> {
+                        val selection = state.selection
+                        layout?.takeIf { it.layoutInput.text.length == state.text.length }
+                            ?.getPathForRange(selection.min, selection.max)?.getBounds()
+                            ?.translate(textOrigin - Offset(0f, scrollState.value.toFloat()))
+                            ?.intersect(viewport)
+                            ?.takeUnless { it.isEmpty }
+                    }
                 }
             }
-        }
+        }.value
         if (anchor != null) {
             val density = LocalDensity.current
             val positionProvider = remember(density, anchor, touchInput) {
