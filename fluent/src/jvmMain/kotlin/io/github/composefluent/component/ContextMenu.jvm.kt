@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.sp
 import io.github.composefluent.animation.FluentDuration
 import io.github.composefluent.animation.FluentEasing
 import io.github.composefluent.component.FluentContextMenuItem.KeyData
-import org.jetbrains.skiko.hostOs
 
 internal object FluentContextMenuRepresentation : ContextMenuRepresentation {
 
@@ -72,7 +71,7 @@ internal object FluentContextMenuRepresentation : ContextMenuRepresentation {
                             keyEvent.type == KeyEventType.KeyDown &&
                             it.keyData != null &&
                             it.keyData.isAltPressed == keyEvent.isAltPressed &&
-                            it.keyData.isCtrlPressed == (if (hostOs.isMacOS) keyEvent.isMetaPressed else keyEvent.isCtrlPressed) &&
+                            it.keyData.isCtrlPressed == (if (usesCommandKey) keyEvent.isMetaPressed else keyEvent.isCtrlPressed) &&
                             it.keyData.isShiftPressed == keyEvent.isShiftPressed &&
                             it.keyData.key == keyEvent.key
                     if (result) {
