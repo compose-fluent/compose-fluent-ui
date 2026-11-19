@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.toTextFieldBuffer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -26,15 +27,46 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import kotlin.time.TimeSource
 
-/** Remembers and restores an editor state with [RichEditBoxState.Saver]. Changes to [initialText] do not replace an existing document. */
+/**
+ * Runtime limits applied independently to each undo and redo stack. [maxEntries] counts edit
+ * groups; zero disables history. [maxEstimatedBytes] is a soft budget: one oversized checkpoint
+ * is retained so that the most recent edit remains undoable.
+ */
+data class RichEditHistoryPolicy(
+    val maxEntries: Int = 100,
+    val maxEstimatedBytes: Long = 2L * 1024 * 1024
+) {
+    init {
+        require(maxEntries >= 0) { "maxEntries must be non-negative" }
+        require(maxEstimatedBytes > 0) { "maxEstimatedBytes must be positive" }
+    }
+
+    companion object {
+        val Default = RichEditHistoryPolicy()
+    }
+}
+
+/** Remembers and restores an editor state. Changes to [initialText] do not replace an existing document. */
 @Composable
-fun rememberRichEditBoxState(initialText: String = ""): RichEditBoxState =
-    rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText) }
+fun rememberRichEditBoxState(
+    initialText: String = "",
+    historyPolicy: RichEditHistoryPolicy = RichEditHistoryPolicy.Default
+): RichEditBoxState {
+    val state = rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText, historyPolicy) }
+    SideEffect { state.historyPolicy = historyPolicy }
+    return state
+}
 
 /** Remembers and restores an editor state initialized with character and paragraph styles. */
 @Composable
-fun rememberRichEditBoxState(initialText: AnnotatedString): RichEditBoxState =
-    rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText) }
+fun rememberRichEditBoxState(
+    initialText: AnnotatedString,
+    historyPolicy: RichEditHistoryPolicy = RichEditHistoryPolicy.Default
+): RichEditBoxState {
+    val state = rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText, historyPolicy) }
+    SideEffect { state.historyPolicy = historyPolicy }
+    return state
+}
 
 /**
  * For host-managed documents. Supply the latest persisted [document] when opening [documentKey],
@@ -43,10 +75,17 @@ fun rememberRichEditBoxState(initialText: AnnotatedString): RichEditBoxState =
  * Compose this overload after loading the document. Use a different key when switching documents.
  */
 @Composable
-fun rememberRichEditBoxState(documentKey: String, document: AnnotatedString): RichEditBoxState =
-    rememberSaveable(documentKey, saver = RichEditBoxState.documentReferenceSaver(documentKey, document)) {
-        RichEditBoxState(document)
+fun rememberRichEditBoxState(
+    documentKey: String,
+    document: AnnotatedString,
+    historyPolicy: RichEditHistoryPolicy = RichEditHistoryPolicy.Default
+): RichEditBoxState {
+    val state = rememberSaveable(documentKey, saver = RichEditBoxState.documentReferenceSaver(documentKey, document)) {
+        RichEditBoxState(document, historyPolicy)
     }
+    SideEffect { state.historyPolicy = historyPolicy }
+    return state
+}
 
 /**
  * Text, formatting, selection, and a bounded undo history for [RichEditBox].
@@ -59,15 +98,31 @@ fun rememberRichEditBoxState(documentKey: String, document: AnnotatedString): Ri
  * @param initialText The initial text and styles. Link and custom annotations are not imported.
  */
 @Stable
-class RichEditBoxState(initialText: AnnotatedString) {
-    constructor(initialText: String = "") : this(AnnotatedString(initialText))
+class RichEditBoxState(
+    initialText: AnnotatedString,
+    historyPolicy: RichEditHistoryPolicy = RichEditHistoryPolicy.Default
+) {
+    constructor(initialText: String = "", historyPolicy: RichEditHistoryPolicy = RichEditHistoryPolicy.Default) :
+        this(AnnotatedString(initialText), historyPolicy)
 
     internal val textFieldState = TextFieldState(initialText.text)
 
     private var pendingStyle by mutableStateOf<SpanStyle?>(null)
     private var pendingSelection: TextRange? = null
-    private val undoHistory = ArrayDeque<Edit>()
-    private val redoHistory = ArrayDeque<Edit>()
+    private val undoHistory = HistoryStack()
+    private val redoHistory = HistoryStack()
+    private var policy by mutableStateOf(historyPolicy)
+
+    /** Lowering the limits evicts the oldest checkpoints without resetting the document. */
+    var historyPolicy: RichEditHistoryPolicy
+        get() = policy
+        set(value) {
+            if (value == policy) return
+            policy = value
+            undoHistory.trim(value)
+            redoHistory.trim(value)
+            updateHistoryAvailability()
+        }
     private var lastInputTime = TimeSource.Monotonic.markNow()
     private var lastInputKind: InputKind? = null
     private var lastEditWasInput = false
@@ -141,14 +196,18 @@ class RichEditBoxState(initialText: AnnotatedString) {
 
     /** Applies one undoable edit. Selection-only changes do not create history entries. */
     fun edit(block: TextFieldBuffer.() -> Unit) {
-        val before = capture()
+        val before = if (historyPolicy.maxEntries > 0) capture() else null
         textFieldState.edit(block)
         pendingStyle = null
         pendingSelection = null
-        val after = capture()
-        if (!before.sameContent(after)) {
-            addUndo(before, after.selection)
+        if (before == null) {
             revision++
+        } else {
+            val after = capture()
+            if (!before.sameContent(after)) {
+                addUndo(before, after.selection)
+                revision++
+            }
         }
         lastInputKind = null
         lastEditWasInput = false
@@ -179,9 +238,9 @@ class RichEditBoxState(initialText: AnnotatedString) {
 
     fun redo() = restoreLast(redoHistory, undoHistory)
 
-    private fun restoreLast(from: ArrayDeque<Edit>, to: ArrayDeque<Edit>) {
+    private fun restoreLast(from: HistoryStack, to: HistoryStack) {
         val entry = from.removeLastOrNull() ?: return
-        to.addCheckpoint(Edit(capture().copy(selection = entry.resultSelection), entry.target.selection))
+        to.add(Edit(capture().copy(selection = entry.resultSelection), entry.target.selection), historyPolicy)
         restore(entry.target)
         revision++
         updateHistoryAvailability()
@@ -243,21 +302,21 @@ class RichEditBoxState(initialText: AnnotatedString) {
         }
         // Replacing selected text with itself can still change its formatting. Only this
         // ambiguous case needs a full comparison to avoid clearing redo for a no-op.
-        if (hasTextChanges && hasIdenticalReplacements() && capture().sameContent(snapshot())) {
+        if (hasTextChanges && this@RichEditBoxState.historyPolicy.maxEntries > 0 && hasIdenticalReplacements() && capture().sameContent(snapshot())) {
             lastEditWasInput = false
             nextInputIsAtomic = false
             return@InputTransformation
         }
         if (hasTextChanges) {
-            val merge = !nextInputIsAtomic && lastEditWasInput && undoHistory.isNotEmpty() &&
+            val merge = !nextInputIsAtomic && lastEditWasInput && undoHistory.entries.isNotEmpty() &&
                 originalSelection == lastInputSelection &&
                 (textFieldState.composition != null ||
                     (kind != null && kind == lastInputKind && lastInputTime.elapsedNow().inWholeMilliseconds < 1000))
             // The committed field still contains the pre-input value during a transformation.
             // Keep one checkpoint per undo group and capture its inverse only on undo/redo.
             if (merge) {
-                undoHistory.last().resultSelection = selection
-            } else {
+                undoHistory.entries.last().resultSelection = selection
+            } else if (this@RichEditBoxState.historyPolicy.maxEntries > 0) {
                 addUndo(capture(), selection)
             }
             revision++
@@ -328,24 +387,40 @@ class RichEditBoxState(initialText: AnnotatedString) {
     }
 
     private fun addUndo(before: Document, resultSelection: TextRange) {
-        undoHistory.addCheckpoint(Edit(before, resultSelection))
+        undoHistory.add(Edit(before, resultSelection), historyPolicy)
         redoHistory.clear()
         updateHistoryAvailability()
     }
 
-    private fun ArrayDeque<Edit>.addCheckpoint(entry: Edit) {
-        addLast(entry)
-        // At most 100 entries per stack. Estimate UTF-16 text and retained style/range objects.
-        var bytes = sumOf { it.target.estimatedBytes }
-        // Keep the latest operation undoable even if its checkpoint alone exceeds the budget.
-        while (size > 1 && (size > 100 || bytes > 2 * 1024 * 1024)) {
-            bytes -= removeFirst().target.estimatedBytes
+    private class HistoryStack {
+        private val checkpoints = ArrayDeque<Edit>()
+        val entries: List<Edit> get() = checkpoints
+        private var bytes = 0L
+
+        fun add(entry: Edit, policy: RichEditHistoryPolicy) {
+            checkpoints.addLast(entry)
+            bytes += entry.target.estimatedBytes
+            trim(policy)
+        }
+
+        fun trim(policy: RichEditHistoryPolicy) {
+            while (checkpoints.size > policy.maxEntries ||
+                (checkpoints.size > 1 && bytes > policy.maxEstimatedBytes)) {
+                bytes -= checkpoints.removeFirst().target.estimatedBytes
+            }
+        }
+
+        fun removeLastOrNull(): Edit? = checkpoints.removeLastOrNull()?.also { bytes -= it.target.estimatedBytes }
+
+        fun clear() {
+            checkpoints.clear()
+            bytes = 0
         }
     }
 
     private fun updateHistoryAvailability() {
-        canUndo = undoHistory.isNotEmpty()
-        canRedo = redoHistory.isNotEmpty()
+        canUndo = undoHistory.entries.isNotEmpty()
+        canRedo = redoHistory.entries.isNotEmpty()
     }
 
     private fun TextFieldBuffer.hasIdenticalReplacements(): Boolean {
@@ -402,12 +477,18 @@ class RichEditBoxState(initialText: AnnotatedString) {
             save = { state ->
                 arrayListOf(
                     saveDocument(state.capture()), savePending(state),
-                    saveHistory(state.undoHistory), saveHistory(state.redoHistory)
+                    saveHistory(state.undoHistory.entries), saveHistory(state.redoHistory.entries),
+                    state.historyPolicy.maxEntries, state.historyPolicy.maxEstimatedBytes
                 )
             },
             restore = { payload ->
                 val fields = payload as List<*>
-                RichEditBoxState().apply {
+                val policy = if (fields.size >= 6) {
+                    RichEditHistoryPolicy(fields[4] as Int, fields[5] as Long)
+                } else {
+                    RichEditHistoryPolicy.Default
+                }
+                RichEditBoxState(historyPolicy = policy).apply {
                     restore(restoreDocument(fields[0]))
                     restorePending(fields[1])
                     restoreHistory(fields[2], undoHistory)
@@ -468,7 +549,7 @@ class RichEditBoxState(initialText: AnnotatedString) {
         private fun <T> restoreStyles(ranges: List<AnnotatedString.Range<T>>, flags: IntArray) =
             ranges.mapIndexed { i, range -> Style(range.item, TextRange(range.start, range.end), policies[flags[i]]) }
 
-        private fun SaverScope.saveHistory(history: ArrayDeque<Edit>): List<Any> {
+        private fun SaverScope.saveHistory(history: List<Edit>): List<Any> {
             val saved = ArrayList<Any>()
             // Estimate cost in UTF-16 code units, allowing for each serialized style's metadata.
             var remaining = 32 * 1024
@@ -482,10 +563,10 @@ class RichEditBoxState(initialText: AnnotatedString) {
             return saved
         }
 
-        private fun restoreHistory(payload: Any?, history: ArrayDeque<Edit>) {
+        private fun RichEditBoxState.restoreHistory(payload: Any?, history: HistoryStack) {
             for (entry in (payload as List<*>).asReversed()) {
                 val fields = entry as List<*>
-                history.addLast(Edit(restoreDocument(fields[0]), TextRange(fields[1] as Int, fields[2] as Int)))
+                history.add(Edit(restoreDocument(fields[0]), TextRange(fields[1] as Int, fields[2] as Int)), historyPolicy)
             }
         }
     }

@@ -106,6 +106,24 @@ class RichEditSaveableTest {
         }
     }
 
+    @Test
+    fun restoredEditorUsesCurrentHistoryLimit() {
+        var limit = 4
+        val content: @Composable () -> RichEditBoxState = {
+            rememberRichEditBoxState(historyPolicy = RichEditHistoryPolicy(maxEntries = limit))
+        }
+        val saved = withRegistry(null, content) { state ->
+            repeat(4) { state.edit { replace(length, length, "a") } }
+        }
+        limit = 1
+        withRegistry(saved, content) { state ->
+            assertEquals(1, state.historyPolicy.maxEntries)
+            state.undo()
+            assertEquals("aaa", state.text.toString())
+            assertFalse(state.canUndo)
+        }
+    }
+
     private fun withRegistry(
         restored: Map<String, List<Any?>>?,
         editor: @Composable () -> RichEditBoxState,

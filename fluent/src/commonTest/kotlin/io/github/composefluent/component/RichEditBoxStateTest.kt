@@ -18,6 +18,38 @@ import kotlin.test.assertTrue
 
 class RichEditBoxStateTest {
     @Test
+    fun configurableHistoryTrimsBothStacksAndCanDisableRecording() {
+        val state = RichEditBoxState(historyPolicy = RichEditHistoryPolicy(maxEntries = 3))
+        for (letter in "abcd") state.edit { replace(length, length, letter.toString()) }
+        state.undo()
+        state.undo()
+        state.historyPolicy = RichEditHistoryPolicy(maxEntries = 1)
+        state.redo()
+        assertEquals("abc", state.text.toString())
+        assertFalse(state.canRedo)
+        state.undo()
+        assertFalse(state.canUndo)
+
+        state.historyPolicy = RichEditHistoryPolicy(maxEntries = 0)
+        assertFalse(state.canRedo)
+        state.type("x")
+        assertFalse(state.canUndo)
+        state.historyPolicy = RichEditHistoryPolicy.Default
+        state.type("y")
+        state.undo()
+        assertEquals("abx", state.text.toString())
+    }
+
+    @Test
+    fun configuredByteBudgetRetainsOnlyTheLatestOversizedCheckpoint() {
+        val state = RichEditBoxState("abc", RichEditHistoryPolicy(maxEstimatedBytes = 1))
+        repeat(3) { state.edit { replace(length, length, "x") } }
+        state.undo()
+        assertEquals("abcxx", state.text.toString())
+        assertFalse(state.canUndo)
+    }
+
+    @Test
     fun oversizedDocumentKeepsItsMostRecentUndoAndRedo() {
         val state = RichEditBoxState("界".repeat(1100000))
         repeat(2) { state.edit { replace(length, length, "x") } }
