@@ -156,6 +156,7 @@ internal fun DropdownMenuContent(
 
             with(LocalWindowAcrylicContainer.current) {
                 FlyoutContentLayout(
+                    useAcrylic = useAcrylic,
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
                     material = MaterialDefaults.acrylicDefault(),
                     shape = shape,

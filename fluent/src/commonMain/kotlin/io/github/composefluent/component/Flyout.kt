@@ -325,9 +325,9 @@ internal fun AcrylicPopupContent(
     elevation: Dp,
     shape: Shape,
     contentPadding: PaddingValues,
-    color: Color = FluentTheme.colors.background.acrylic.default,
-    strokeColor: Color = FluentTheme.colors.stroke.surface.flyout,
-    useAcrylic: Boolean = LocalAcrylicPopupEnabled.current,
+    color: Color,
+    strokeColor: Color,
+    useAcrylic: Boolean,
     content: @Composable () -> Unit
 ) {
     with(LocalWindowAcrylicContainer.current) {
@@ -374,7 +374,7 @@ internal fun MaterialContainerScope.FlyoutContentLayout(
     material: Material,
     shape: Shape,
     contentPadding: PaddingValues,
-    useAcrylic: Boolean = LocalAcrylicPopupEnabled.current,
+    useAcrylic: Boolean,
     content: @Composable () -> Unit
 ) {
     Layout(

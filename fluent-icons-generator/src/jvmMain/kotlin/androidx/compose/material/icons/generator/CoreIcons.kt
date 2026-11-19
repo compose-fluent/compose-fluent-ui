@@ -24,11 +24,11 @@ package androidx.compose.material.icons.generator
  */
 val CoreIcons = setOf(
     "Add", "Alert", "ArrowDown", "ArrowDownLeft", "ArrowDownload", "ArrowExpand", "ArrowForward", "ArrowLeft",
-    "ArrowRight", "ArrowSync", "ArrowUp", "ArrowUpLeft", "ArrowUpRight",  "Attach", "Backspace", "CalendarLtr",
+    "ArrowRedo", "ArrowRight", "ArrowSync", "ArrowUndo", "ArrowUp", "ArrowUpLeft", "ArrowUpRight",  "Attach", "Backspace", "CalendarLtr",
     "CaretDown", "CaretDownRight", "CaretLeft", "CaretRight", "CaretUp", "Checkmark", "ChevronDown", "ChevronLeft",
     "ChevronRight", "ChevronUp", "Clock", "Cloud", "ClipboardPaste", "Copy", "Cut", "Delete", "Dismiss", "Document", "Edit",
     "ErrorCircle", "Eye", "Filter", "Flag", "Flash", "Folder", "Heart", "History", "Home", "Image", "Important", "Info",
     "Key", "Link", "Mail", "Maximize", "MoreHorizontal", "MoreVertical",  "Navigation", "Open", "Options", "Pause",
     "Person", "Pin", "Play", "ReOrder", "Rename", "Save", "Search", "Send", "Settings", "Share", "Star", "Subtract",
-    "Tag", "Warning", "Wrench"
+    "Tag", "TextBold", "TextItalic", "TextUnderline", "Warning", "Wrench"
 )

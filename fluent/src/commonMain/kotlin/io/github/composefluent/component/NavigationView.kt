@@ -482,6 +482,7 @@ private fun LeftCollapsedLayout(
                 )
             ) {
                 FlyoutContentLayout(
+                    useAcrylic = useAcrylic,
                     shape = FluentTheme.shapes.overlay,
                     material = MaterialDefaults.acrylicDefault(),
                     contentPadding = PaddingValues()
@@ -639,6 +640,7 @@ private fun LeftCompactLayout(
             )
         ) {
             FlyoutContentLayout(
+                useAcrylic = useAcrylic,
                 shape = FluentTheme.shapes.overlay,
                 material = if (isCollapsed) {
                     MaterialDefaults.customAcrylic(

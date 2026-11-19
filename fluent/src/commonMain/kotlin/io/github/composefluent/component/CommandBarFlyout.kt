@@ -110,16 +110,17 @@ fun LargeCommandBarFlyout(
 }
 
 @Composable
-private fun BasicCommandBarFlyout(
+internal fun BasicCommandBarFlyout(
     visible: Boolean,
     onDismissRequest: () -> Unit,
     expanded: Boolean,
     onExpandedChanged: (Boolean) -> Unit,
     modifier: Modifier,
     secondary: (@Composable MenuFlyoutScope.(hasOverFlowItem: Boolean) -> Unit)? = null,
-    spacing: Dp ,
+    spacing: Dp = 4.dp,
     positionProvider: FlyoutPositionProvider,
     isLarge: Boolean,
+    focusable: Boolean = true,
     content: OverflowRowScope.() -> Unit
 ) {
     val state = rememberOverflowRowState()
@@ -129,6 +130,7 @@ private fun BasicCommandBarFlyout(
         visible = visible,
         onDismissRequest = onDismissRequest,
         positionProvider = positionProvider,
+        focusable = focusable,
         contentPadding = PaddingValues()
     ) {
         val menuFlyoutScope = remember { MenuFlyoutScopeImpl() }

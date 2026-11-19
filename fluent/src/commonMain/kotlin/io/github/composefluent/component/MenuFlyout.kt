@@ -495,3 +495,12 @@ internal class SubMenuFlyoutPositionProvider(
 
 private fun <T> menuFlyoutEnterSpec() =
     tween<T>(FluentDuration.ShortDuration, easing = FluentEasing.FastInvokeEasing)
+
+
+internal fun menuShortcutLabel(key: String, ctrl: Boolean, shift: Boolean = false, alt: Boolean = false): String =
+    buildString {
+        if (alt) append(if (usesCommandKey) "⌥ " else "Alt+")
+        if (ctrl) append(if (usesCommandKey) "⌘ " else "Ctrl+")
+        if (shift) append(if (usesCommandKey) "⇧ " else "Shift+")
+        append(key)
+    }

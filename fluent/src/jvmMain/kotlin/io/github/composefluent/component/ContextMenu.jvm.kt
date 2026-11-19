@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.sp
 import io.github.composefluent.animation.FluentDuration
 import io.github.composefluent.animation.FluentEasing
 import io.github.composefluent.component.FluentContextMenuItem.KeyData
-import org.jetbrains.skiko.hostOs
 
 internal object FluentContextMenuRepresentation : ContextMenuRepresentation {
 
@@ -72,7 +71,7 @@ internal object FluentContextMenuRepresentation : ContextMenuRepresentation {
                             keyEvent.type == KeyEventType.KeyDown &&
                             it.keyData != null &&
                             it.keyData.isAltPressed == keyEvent.isAltPressed &&
-                            it.keyData.isCtrlPressed == (if (hostOs.isMacOS) keyEvent.isMetaPressed else keyEvent.isCtrlPressed) &&
+                            it.keyData.isCtrlPressed == (if (usesCommandKey) keyEvent.isMetaPressed else keyEvent.isCtrlPressed) &&
                             it.keyData.isShiftPressed == keyEvent.isShiftPressed &&
                             it.keyData.key == keyEvent.key
                     if (result) {
@@ -118,30 +117,12 @@ internal object FluentContextMenuRepresentation : ContextMenuRepresentation {
                         trailing = {
                             it.keyData?.let { keyData ->
                                 val keyString = remember(keyData) {
-                                    buildString {
-                                        if (!hostOs.isMacOS) {
-                                            if (keyData.isAltPressed) {
-                                                append("Alt+")
-                                            }
-                                            if (keyData.isCtrlPressed) {
-                                                append("Ctrl+")
-                                            }
-                                            if (keyData.isShiftPressed) {
-                                                append("Shift+")
-                                            }
-                                        } else {
-                                            if (keyData.isAltPressed) {
-                                                append("⌥ ")
-                                            }
-                                            if (keyData.isCtrlPressed) {
-                                                append("⌘ ")
-                                                }
-                                            if (keyData.isShiftPressed) {
-                                                append("⇧ ")
-                                            }
-                                        }
-                                        append(keyData.key.toString().removePrefix("Key: "))
-                                    }
+                                    menuShortcutLabel(
+                                        key = keyData.key.toString().removePrefix("Key: "),
+                                        ctrl = keyData.isCtrlPressed,
+                                        shift = keyData.isShiftPressed,
+                                        alt = keyData.isAltPressed
+                                    )
                                 }
                                 Text(
                                     text = keyString,
