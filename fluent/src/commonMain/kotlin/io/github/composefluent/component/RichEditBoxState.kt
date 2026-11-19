@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.SaverScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -23,15 +25,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import kotlin.time.TimeSource
 
-/** Remembers an editor state. Changes to [initialText] do not replace an existing document. */
+/** Remembers and restores an editor state with [RichEditBoxState.Saver]. Changes to [initialText] do not replace an existing document. */
 @Composable
 fun rememberRichEditBoxState(initialText: String = ""): RichEditBoxState =
-    remember { RichEditBoxState(initialText) }
+    rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText) }
 
-/** Remembers an editor state initialized with character and paragraph styles. */
+/** Remembers and restores an editor state initialized with character and paragraph styles. */
 @Composable
 fun rememberRichEditBoxState(initialText: AnnotatedString): RichEditBoxState =
-    remember { RichEditBoxState(initialText) }
+    rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText) }
 
 /**
  * Text, formatting, selection, and a bounded undo history for [RichEditBox].
@@ -366,6 +368,89 @@ class RichEditBoxState(initialText: AnnotatedString) {
     }
     private class Edit(val target: Document, var resultSelection: TextRange)
     private enum class InputKind { Insert, Backspace, Delete }
+
+    companion object {
+        // Stable persisted order for the two bits of range expansion behavior.
+        private val policies = listOf(ExpandPolicy.InsideOnly, ExpandPolicy.AtStart, ExpandPolicy.AtEnd, ExpandPolicy.AtBoth)
+
+        // Compose exposes this saver with a star-projected payload. Only pass its own output back to it.
+        @Suppress("UNCHECKED_CAST")
+        private val annotatedSaver = AnnotatedString.Saver as Saver<AnnotatedString, Any>
+
+        /**
+         * Saves the document, directional selection, pending typing style and recent undo/redo.
+         * Style serialization follows [AnnotatedString.Saver]. Each history stack saves its newest
+         * consecutive checkpoints within an estimated size budget. The current document is saved in full.
+         */
+        val Saver: Saver<RichEditBoxState, Any> = Saver(
+            save = { state ->
+                val pending = state.pendingStyle?.takeIf { state.pendingSelection == state.selection }
+                val savedPending = pending?.let { with(annotatedSaver) { save(AnnotatedString(" ", it)) } }
+                arrayListOf(
+                    saveDocument(state.capture()), savedPending,
+                    saveHistory(state.undoHistory), saveHistory(state.redoHistory)
+                )
+            },
+            restore = { payload ->
+                val fields = payload as List<*>
+                RichEditBoxState().apply {
+                    restore(restoreDocument(fields[0]))
+                    fields[1]?.let { pending ->
+                        pendingStyle = annotatedSaver.restore(pending)!!.spanStyles.single().item
+                        pendingSelection = selection
+                    }
+                    restoreHistory(fields[2], undoHistory)
+                    restoreHistory(fields[3], redoHistory)
+                    updateHistoryAvailability()
+                }
+            }
+        )
+
+        private fun SaverScope.saveDocument(doc: Document): Any {
+            val annotated = AnnotatedString(doc.text, doc.spans.map { it.annotation() }, doc.paragraphs.map { it.annotation() })
+            return arrayListOf(
+                with(annotatedSaver) { save(annotated) }, doc.selection.start, doc.selection.end,
+                doc.spans.map { policies.indexOf(it.expandPolicy) }.toIntArray(),
+                doc.paragraphs.map { policies.indexOf(it.expandPolicy) }.toIntArray()
+            )
+        }
+
+        private fun <T> Style<T>.annotation() = AnnotatedString.Range(value, range.start, range.end)
+
+        private fun restoreDocument(payload: Any?): Document {
+            val fields = payload as List<*>
+            val annotated = annotatedSaver.restore(fields[0]!!)!!
+            return Document(
+                annotated.text, TextRange(fields[1] as Int, fields[2] as Int),
+                restoreStyles(annotated.spanStyles, fields[3] as IntArray),
+                restoreStyles(annotated.paragraphStyles, fields[4] as IntArray)
+            )
+        }
+
+        private fun <T> restoreStyles(ranges: List<AnnotatedString.Range<T>>, flags: IntArray) =
+            ranges.mapIndexed { i, range -> Style(range.item, TextRange(range.start, range.end), policies[flags[i]]) }
+
+        private fun SaverScope.saveHistory(history: ArrayDeque<Edit>): List<Any> {
+            val saved = ArrayList<Any>()
+            // Estimate cost in UTF-16 code units, allowing for each serialized style's metadata.
+            var remaining = 32 * 1024
+            for (entry in history.asReversed()) {
+                val doc = entry.target
+                val cost = doc.text.length.toLong() + 128L * (doc.spans.size + doc.paragraphs.size) + 16
+                if (cost > remaining) break
+                remaining -= cost.toInt()
+                saved.add(arrayListOf(saveDocument(doc), entry.resultSelection.start, entry.resultSelection.end))
+            }
+            return saved
+        }
+
+        private fun restoreHistory(payload: Any?, history: ArrayDeque<Edit>) {
+            for (entry in (payload as List<*>).asReversed()) {
+                val fields = entry as List<*>
+                history.addLast(Edit(restoreDocument(fields[0]), TextRange(fields[1] as Int, fields[2] as Int)))
+            }
+        }
+    }
 }
 
 /** Flatten only the affected character runs, preserving unrelated style properties and ordering. */
