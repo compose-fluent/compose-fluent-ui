@@ -87,6 +87,25 @@ class RichEditSaveableTest {
         }
     }
 
+    @Test
+    fun documentReferenceRestoresFromHostAndSavesOnlyEditorMetadata() {
+        val key = "draft-1"
+        var persisted = AnnotatedString("界".repeat(200000))
+        val content: @Composable () -> RichEditBoxState = { rememberRichEditBoxState(key, persisted) }
+        val saved = withRegistry(null, content) { state ->
+            state.selection = TextRange(10)
+            state.toggleItalic()
+        }
+        assertFalse(saved.toString().contains("界"))
+        // A host can restore a newer, shorter revision of the same document.
+        persisted = AnnotatedString("新版")
+        withRegistry(saved, content) { state ->
+            assertEquals(persisted, state.toAnnotatedString())
+            assertEquals(TextRange(2), state.selection)
+            assertTrue(state.isItalic)
+        }
+    }
+
     private fun withRegistry(
         restored: Map<String, List<Any?>>?,
         editor: @Composable () -> RichEditBoxState,

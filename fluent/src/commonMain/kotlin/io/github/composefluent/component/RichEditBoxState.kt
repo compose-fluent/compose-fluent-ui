@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.toTextFieldBuffer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
@@ -34,6 +35,18 @@ fun rememberRichEditBoxState(initialText: String = ""): RichEditBoxState =
 @Composable
 fun rememberRichEditBoxState(initialText: AnnotatedString): RichEditBoxState =
     rememberSaveable(saver = RichEditBoxState.Saver) { RichEditBoxState(initialText) }
+
+/**
+ * For host-managed documents. Supply the latest persisted [document] when opening [documentKey],
+ * and persist edits through the host's document store. Saved instance state contains the key,
+ * selection and typing style; the undo stacks live for the lifetime of the editor.
+ * Compose this overload after loading the document. Use a different key when switching documents.
+ */
+@Composable
+fun rememberRichEditBoxState(documentKey: String, document: AnnotatedString): RichEditBoxState =
+    rememberSaveable(documentKey, saver = RichEditBoxState.documentReferenceSaver(documentKey, document)) {
+        RichEditBoxState(document)
+    }
 
 /**
  * Text, formatting, selection, and a bounded undo history for [RichEditBox].
@@ -89,18 +102,29 @@ class RichEditBoxState(initialText: AnnotatedString) {
             selectionChanged()
         }
 
-    /** True when the entire selection (or the next insertion) has this formatting. */
-    val isBold: Boolean get() = hasStyle { (it.fontWeight ?: FontWeight.Normal) >= FontWeight.Bold }
-    val isItalic: Boolean get() = hasStyle { it.fontStyle == FontStyle.Italic }
-    val isUnderline: Boolean get() = hasStyle { it.textDecoration?.contains(TextDecoration.Underline) == true }
-
-    /** Foreground color at the caret or across the selection. Mixed or default colors are unspecified. */
-    val textColor: Color
-        get() = if (selection.collapsed) insertionStyle().color else {
-            val runs = styleRuns(selection)
-            val first = runs.first().second.color
-            if (runs.all { it.second.color == first }) first else Color.Unspecified
+    private val formatting by derivedStateOf {
+        var bold = true
+        var italic = true
+        var underline = true
+        var color: Color? = null
+        fun include(style: SpanStyle) {
+            bold = bold && (style.fontWeight ?: FontWeight.Normal) >= FontWeight.Bold
+            italic = italic && style.fontStyle == FontStyle.Italic
+            underline = underline && style.textDecoration?.contains(TextDecoration.Underline) == true
+            color = if (color == null || color == style.color) style.color else Color.Unspecified
         }
+        if (selection.collapsed) include(insertionStyle())
+        else forEachStyleRun(selection, textFieldState.textStyles.getSpanStyles(selection)) { _, _, style -> include(style) }
+        Formatting(bold, italic, underline, color ?: Color.Unspecified)
+    }
+
+    private data class Formatting(val bold: Boolean, val italic: Boolean, val underline: Boolean, val color: Color)
+
+    val isBold: Boolean get() = formatting.bold
+    val isItalic: Boolean get() = formatting.italic
+    val isUnderline: Boolean get() = formatting.underline
+    /** Foreground color at the caret or across the selection. Mixed or default colors are unspecified. */
+    val textColor: Color get() = formatting.color
 
     /** Applies a foreground color to the selection or to subsequent typing at the caret. */
     fun setTextColor(color: Color) = applyFormatting(SpanStyle(color = color))
@@ -143,13 +167,9 @@ class RichEditBoxState(initialText: AnnotatedString) {
             applyFormatting(SpanStyle(textDecoration = decoration.withUnderline(underline)))
         } else {
             // Preserve other decorations, including strikethrough, in each selected run.
-            val runs = styleRuns(selection)
             edit {
-                runs.forEach { (range, style) ->
-                    applyStyle(
-                        range,
-                        SpanStyle(textDecoration = (style.textDecoration ?: TextDecoration.None).withUnderline(underline))
-                    )
+                transformStyles(TextRange(selection.min, selection.max)) { style ->
+                    style.copy(textDecoration = (style.textDecoration ?: TextDecoration.None).withUnderline(underline))
                 }
             }
         }
@@ -161,7 +181,7 @@ class RichEditBoxState(initialText: AnnotatedString) {
 
     private fun restoreLast(from: ArrayDeque<Edit>, to: ArrayDeque<Edit>) {
         val entry = from.removeLastOrNull() ?: return
-        to.addLast(Edit(capture().copy(selection = entry.resultSelection), entry.target.selection))
+        to.addCheckpoint(Edit(capture().copy(selection = entry.resultSelection), entry.target.selection))
         restore(entry.target)
         revision++
         updateHistoryAvailability()
@@ -273,23 +293,8 @@ class RichEditBoxState(initialText: AnnotatedString) {
         if (text.isEmpty()) return SpanStyle()
         // Probe the preceding UTF-16 code unit only for styles; never split or edit a character.
         val index = (selection.min - 1).coerceAtLeast(0)
-        return styleRuns(TextRange(index, index + 1)).first().second
-    }
-
-    private fun hasStyle(predicate: (SpanStyle) -> Boolean): Boolean =
-        if (selection.collapsed) predicate(insertionStyle())
-        else styleRuns(selection).all { predicate(it.second) }
-
-    private fun styleRuns(range: TextRange): List<Pair<TextRange, SpanStyle>> {
-        val styles = textFieldState.textStyles.getSpanStyles(range)
-        val boundaries = (listOf(range.min, range.max) + styles.flatMap {
-            listOf(it.start.coerceIn(range.min, range.max), it.end.coerceIn(range.min, range.max))
-        }).distinct().sorted()
-        return boundaries.zipWithNext { start, end ->
-            TextRange(start, end) to styles.fold(SpanStyle()) { result, span ->
-                if (span.start <= start && span.end >= end) result.merge(span.item) else result
-            }
-        }
+        return textFieldState.textStyles.getSpanStyles(TextRange(index, index + 1))
+            .fold(SpanStyle()) { style, span -> style.merge(span.item) }
     }
 
     private fun capture(): Document = textFieldState.toTextFieldBuffer().snapshot()
@@ -323,10 +328,19 @@ class RichEditBoxState(initialText: AnnotatedString) {
     }
 
     private fun addUndo(before: Document, resultSelection: TextRange) {
-        undoHistory.addLast(Edit(before, resultSelection))
-        if (undoHistory.size > 100) undoHistory.removeFirst()
+        undoHistory.addCheckpoint(Edit(before, resultSelection))
         redoHistory.clear()
         updateHistoryAvailability()
+    }
+
+    private fun ArrayDeque<Edit>.addCheckpoint(entry: Edit) {
+        addLast(entry)
+        // At most 100 entries per stack. Estimate UTF-16 text and retained style/range objects.
+        var bytes = sumOf { it.target.estimatedBytes }
+        // Keep the latest operation undoable even if its checkpoint alone exceeds the budget.
+        while (size > 1 && (size > 100 || bytes > 2 * 1024 * 1024)) {
+            bytes -= removeFirst().target.estimatedBytes
+        }
     }
 
     private fun updateHistoryAvailability() {
@@ -363,6 +377,8 @@ class RichEditBoxState(initialText: AnnotatedString) {
         val spans: List<Style<SpanStyle>>,
         val paragraphs: List<Style<ParagraphStyle>>
     ) {
+        val estimatedBytes: Long get() = 64L + 2L * text.length + 256L * (spans.size.toLong() + paragraphs.size)
+
         fun sameContent(other: Document): Boolean =
             text == other.text && spans == other.spans && paragraphs == other.paragraphs
     }
@@ -384,10 +400,8 @@ class RichEditBoxState(initialText: AnnotatedString) {
          */
         val Saver: Saver<RichEditBoxState, Any> = Saver(
             save = { state ->
-                val pending = state.pendingStyle?.takeIf { state.pendingSelection == state.selection }
-                val savedPending = pending?.let { with(annotatedSaver) { save(AnnotatedString(" ", it)) } }
                 arrayListOf(
-                    saveDocument(state.capture()), savedPending,
+                    saveDocument(state.capture()), savePending(state),
                     saveHistory(state.undoHistory), saveHistory(state.redoHistory)
                 )
             },
@@ -395,16 +409,40 @@ class RichEditBoxState(initialText: AnnotatedString) {
                 val fields = payload as List<*>
                 RichEditBoxState().apply {
                     restore(restoreDocument(fields[0]))
-                    fields[1]?.let { pending ->
-                        pendingStyle = annotatedSaver.restore(pending)!!.spanStyles.single().item
-                        pendingSelection = selection
-                    }
+                    restorePending(fields[1])
                     restoreHistory(fields[2], undoHistory)
                     restoreHistory(fields[3], redoHistory)
                     updateHistoryAvailability()
                 }
             }
         )
+
+        internal fun documentReferenceSaver(key: String, document: AnnotatedString): Saver<RichEditBoxState, Any> =
+            Saver(
+                save = { state -> arrayListOf(key, state.selection.start, state.selection.end, savePending(state)) },
+                restore = { payload ->
+                    val fields = payload as List<*>
+                    if (fields[0] != key) null else RichEditBoxState(document).apply {
+                        selection = TextRange(
+                            (fields[1] as Int).coerceIn(0, text.length),
+                            (fields[2] as Int).coerceIn(0, text.length)
+                        )
+                        restorePending(fields[3])
+                    }
+                }
+            )
+
+        private fun SaverScope.savePending(state: RichEditBoxState): Any? {
+            val pending = state.pendingStyle?.takeIf { state.pendingSelection == state.selection } ?: return null
+            return with(annotatedSaver) { save(AnnotatedString(" ", pending)) }
+        }
+
+        private fun RichEditBoxState.restorePending(saved: Any?) {
+            if (saved != null) {
+                pendingStyle = annotatedSaver.restore(saved)!!.spanStyles.single().item
+                pendingSelection = selection
+            }
+        }
 
         private fun SaverScope.saveDocument(doc: Document): Any {
             val annotated = AnnotatedString(doc.text, doc.spans.map { it.annotation() }, doc.paragraphs.map { it.annotation() })
@@ -453,27 +491,73 @@ class RichEditBoxState(initialText: AnnotatedString) {
     }
 }
 
-/** Flatten only the affected character runs, preserving unrelated style properties and ordering. */
 private fun TextFieldBuffer.applyStyle(range: TextRange, style: SpanStyle) {
-    val existing = getSpanStyles(range).map { Triple(it.spanStyle, it.textRange, it.expandPolicy) }
-    // Continuing to type with the same pending style should extend a run, not create one per key.
-    existing.singleOrNull()?.let { (value, old, _) ->
-        if (old.min <= range.min && old.max >= range.max && value.merge(style) == value) return
+    transformStyles(range) { it.merge(style) }
+}
+
+/** Rewrite the affected spans once, retaining style precedence and ranges outside the edit. */
+private fun TextFieldBuffer.transformStyles(range: TextRange, transform: (SpanStyle) -> SpanStyle) {
+    val tracked = getSpanStyles(range)
+    tracked.singleOrNull()?.let {
+        if (it.textRange.min <= range.min && it.textRange.max >= range.max && transform(it.spanStyle) == it.spanStyle) return
     }
-    val boundaries = (listOf(range.min, range.max) + existing.flatMap {
-        listOf(it.second.min.coerceIn(range.min, range.max), it.second.max.coerceIn(range.min, range.max))
-    }).distinct().sorted()
-    getSpanStyles(range).forEach { removeStyle(it) }
-    existing.forEach { (value, old, policy) ->
-        if (old.min < range.min) addStyle(value, TextRange(old.min, range.min), policy)
-        if (old.max > range.max) addStyle(value, TextRange(range.max, old.max), policy)
+    val spans = tracked.map { AnnotatedString.Range(it.spanStyle, it.textRange.min, it.textRange.max) }
+    // Reinsert the outside fragments in their original order.
+    val policies = tracked.map { it.expandPolicy }
+    tracked.forEach { removeStyle(it) }
+    spans.forEachIndexed { i, span ->
+        if (span.start < range.min) addStyle(span.item, TextRange(span.start, range.min), policies[i])
+        if (span.end > range.max) addStyle(span.item, TextRange(range.max, span.end), policies[i])
     }
-    boundaries.zipWithNext { start, end ->
-        val merged = existing.fold(SpanStyle()) { result, (value, old, _) ->
-            if (old.min <= start && old.max >= end) result.merge(value) else result
-        }.merge(style)
-        addStyle(merged, TextRange(start, end), ExpandPolicy.AtEnd)
+    var previous: SpanStyle? = null
+    var start = range.min
+    forEachStyleRun(range, spans) { position, _, style ->
+        val next = transform(style)
+        if (next != previous) {
+            previous?.let { addStyle(it, TextRange(start, position), ExpandPolicy.AtEnd) }
+            previous = next
+            start = position
+        }
     }
+    previous?.let { addStyle(it, TextRange(start, range.max), ExpandPolicy.AtEnd) }
+}
+
+private data class StyleBoundary(val position: Int, val index: Int, val entering: Boolean)
+
+/** Sweep boundaries with a merge tree ordered by original span index. Each event updates O(log n) nodes. */
+private inline fun forEachStyleRun(
+    range: TextRange,
+    spans: List<AnnotatedString.Range<SpanStyle>>,
+    visit: (Int, Int, SpanStyle) -> Unit
+) {
+    val empty = SpanStyle()
+    val events = ArrayList<StyleBoundary>(spans.size * 2)
+    spans.forEachIndexed { index, span ->
+        val start = maxOf(span.start, range.min)
+        val end = minOf(span.end, range.max)
+        if (start < end) {
+            events.add(StyleBoundary(start, index, true))
+            events.add(StyleBoundary(end, index, false))
+        }
+    }
+    events.sortBy { it.position }
+    var leaves = 1
+    while (leaves < spans.size) leaves *= 2
+    val tree = arrayOfNulls<SpanStyle>(2 * leaves)
+    var position = range.min
+    for (event in events) {
+        if (position < event.position) visit(position, event.position, tree[1] ?: empty)
+        position = event.position
+        var node = leaves + event.index
+        tree[node] = if (event.entering) spans[event.index].item else null
+        while (node > 1) {
+            node /= 2
+            val left = tree[2 * node]
+            val right = tree[2 * node + 1]
+            tree[node] = if (left != null && right != null) left.merge(right) else left ?: right
+        }
+    }
+    if (position < range.max) visit(position, range.max, tree[1] ?: empty)
 }
 
 private fun TextDecoration.withUnderline(enabled: Boolean): TextDecoration = when {

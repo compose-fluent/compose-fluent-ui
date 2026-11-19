@@ -18,6 +18,52 @@ import kotlin.test.assertTrue
 
 class RichEditBoxStateTest {
     @Test
+    fun oversizedDocumentKeepsItsMostRecentUndoAndRedo() {
+        val state = RichEditBoxState("界".repeat(1100000))
+        repeat(2) { state.edit { replace(length, length, "x") } }
+        state.undo()
+        assertEquals(1100001, state.text.length)
+        assertFalse(state.canUndo)
+        state.redo()
+        assertEquals(1100002, state.text.length)
+    }
+
+    @Test
+    fun nestedStylesRetainOriginalPrecedenceAfterFormatting() {
+        val state = RichEditBoxState(AnnotatedString("abcdef", listOf(
+            AnnotatedString.Range(SpanStyle(color = Color.Red, fontWeight = FontWeight.Bold), 1, 5),
+            AnnotatedString.Range(SpanStyle(color = Color.Blue), 0, 4),
+            AnnotatedString.Range(SpanStyle(fontWeight = FontWeight.Normal), 2, 3)
+        )))
+        state.selection = TextRange(4, 1)
+        assertEquals(Color.Blue, state.textColor)
+        assertFalse(state.isBold)
+        state.toggleUnderline()
+        assertTrue(state.isUnderline)
+        assertEquals(Color.Blue, state.styleAt(1).color)
+        assertEquals(FontWeight.Normal, state.styleAt(2).fontWeight)
+        assertEquals(FontWeight.Bold, state.styleAt(3).fontWeight)
+        assertEquals(Color.Red, state.styleAt(4).color)
+        state.undo()
+        assertFalse(state.isUnderline)
+    }
+
+    @Test
+    fun longDocumentEvictsOldestUndoCheckpoints() {
+        val state = RichEditBoxState("界".repeat(200000))
+        repeat(100) { state.edit { replace(length, length, "字") } }
+        var retained = 0
+        while (state.canUndo) {
+            state.undo()
+            retained++
+        }
+        assertTrue(retained in 1..5)
+        assertEquals(200100 - retained, state.text.length)
+        repeat(retained) { state.redo() }
+        assertEquals(200100, state.text.length)
+    }
+
+    @Test
     fun partialBoldTogglePreservesUnselectedFormatting() {
         val state = RichEditBoxState(AnnotatedString("abcdef", SpanStyle(fontWeight = FontWeight.Bold, color = Color.Red)))
         state.selection = TextRange(4, 2)

@@ -217,12 +217,24 @@ fun RichEditBox(
             )
         }
 
-        val anchor = contextAnchor ?: layout?.takeIf { it.layoutInput.text.length == state.text.length && !selection.collapsed }
-            ?.getPathForRange(selection.min, selection.max)?.getBounds()
-            ?.translate(textOrigin - Offset(0f, scrollState.value.toFloat()))
-            ?.intersect(viewport)
-            ?.takeUnless { it.isEmpty }
-        if (anchor != null && focused && (contextAnchor != null || (editable && showFormattingToolbar)) && !dismissed && !pointerDown) {
+        val anchor = when {
+            !focused || dismissed || pointerDown -> null
+            contextAnchor != null -> contextAnchor
+            !editable || !showFormattingToolbar || selection.collapsed -> null
+            else -> {
+                val currentLayout = layout
+                val scroll = scrollState.value
+                val length = state.text.length
+                remember(currentLayout, selection, textOrigin, viewport, scroll, length) {
+                    currentLayout?.takeIf { it.layoutInput.text.length == length }
+                        ?.getPathForRange(selection.min, selection.max)?.getBounds()
+                        ?.translate(textOrigin - Offset(0f, scroll.toFloat()))
+                        ?.intersect(viewport)
+                        ?.takeUnless { it.isEmpty }
+                }
+            }
+        }
+        if (anchor != null) {
             val density = LocalDensity.current
             val positionProvider = remember(density, anchor, touchInput) {
                 // Leave the area above a touch selection available for the platform clipboard toolbar.
